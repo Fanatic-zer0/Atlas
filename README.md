@@ -6,7 +6,7 @@
 ![Kubernetes](https://img.shields.io/badge/Kubernetes-0.28-326CE5?logo=kubernetes)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-<img width="1173" height="856" alt="image" src="https://github.com/user-attachments/assets/11f948e1-0f59-48ce-84fe-c4a190e6f1bd" />
+<img width="1393" height="935" alt="image" src="https://github.com/user-attachments/assets/12ba1c7b-5ad6-40c1-a0ba-247357e3e01a" />
 
 
 ## ✨ Features 
@@ -64,7 +64,7 @@ ajna/
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/ajna.git
+git clone https://github.com/Fanatic-zer0/ajna.git
 cd ajna
 
 # Install dependencies
@@ -298,8 +298,8 @@ This project is licensed under the MIT License.
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/ajna/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/ajna/discussions)
+- **Issues**: [GitHub Issues](https://github.com/Fanatic-zer0/ajna/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/Fanatic-zer0/ajna/discussions)
 
 ---
 
