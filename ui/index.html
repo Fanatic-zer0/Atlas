@@ -1,0 +1,1497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SRE Quick Glance </title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            background-attachment: fixed;
+            color: #eee;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+        }
+        .header {
+            background: linear-gradient(135deg, #4b63cb 0%, #70568a 100%);
+            padding: 25px 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+            border-bottom: 3px solid #8b5cf6;
+        }
+        .header h1 {
+            font-size: 32px;
+            margin: 0 0 12px 0;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .cluster-info {
+            display: flex;
+            gap: 25px;
+            font-size: 14px;
+            opacity: 0.95;
+            flex-wrap: wrap;
+        }
+        .cluster-info > span {
+            background: rgba(255,255,255,0.15);
+            padding: 6px 14px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 25px;
+        }
+        .controls {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 25px;
+            align-items: center;
+            background: rgba(45, 45, 68, 0.6);
+            padding: 15px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .controls label {
+            font-weight: 600;
+            color: #a78bfa;
+        }
+        select, button, input {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        select, input {
+            background: #1a1a2e;
+            color: #eee;
+            border: 2px solid #3d3d5c;
+        }
+        select:focus, input:focus {
+            outline: none;
+            border-color: #8b5cf6;
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: 600;
+            box-shadow: 0 4px 10px rgba(102, 126, 234, 0.3);
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(102, 126, 234, 0.4);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 25px;
+            border-bottom: 2px solid rgba(139, 92, 246, 0.3);
+            overflow-x: auto;
+            padding-bottom: 2px;
+        }
+        .tab {
+            padding: 14px 24px;
+            background: rgba(45, 45, 68, 0.4);
+            border: none;
+            color: #aaa;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-radius: 10px 10px 0 0;
+            font-weight: 500;
+            border-bottom: 3px solid transparent;
+        }
+        .tab:hover {
+            background: rgba(45, 45, 68, 0.7);
+            color: #eee;
+        }
+        .tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-bottom-color: #8b5cf6;
+            box-shadow: 0 -2px 10px rgba(139, 92, 246, 0.3);
+        }
+        .tab-content {
+            display: none;
+            background: rgba(45, 45, 68, 0.5);
+            padding: 25px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .tab-content h2 {
+            color: #a78bfa;
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #1a1a2e;
+        }
+        th {
+            background: #667eea;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #2d2d44;
+        }
+        tr:hover {
+            background: #25253a;
+            cursor: pointer;
+        }
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .badge-success { background: #10b981; }
+        .badge-warning { background: #f59e0b; }
+        .badge-danger { background: #ef4444; }
+        .loading {
+            text-align: center;
+            padding: 50px;
+            font-size: 18px;
+            color: #a78bfa;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+        .health-card {
+            background: linear-gradient(135deg, rgba(26, 26, 46, 0.9) 0%, rgba(45, 45, 68, 0.9) 100%);
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+        }
+        .health-card h3 {
+            color: #a78bfa;
+            margin-top: 0;
+            font-size: 20px;
+            border-bottom: 2px solid rgba(139, 92, 246, 0.3);
+            padding-bottom: 10px;
+        }
+        .health-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 18px;
+            margin-top: 18px;
+        }
+        .stat {
+            background: linear-gradient(135deg, rgba(45, 45, 68, 0.7) 0%, rgba(26, 26, 46, 0.7) 100%);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            border: 2px solid rgba(139, 92, 246, 0.2);
+            transition: all 0.3s ease;
+        }
+        .stat:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 6px 20px rgba(139, 92, 246, 0.3);
+            border-color: rgba(139, 92, 246, 0.5);
+        }
+        .stat-value {
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .stat-label {
+            font-size: 14px;
+            color: #aaa;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .card {
+            background: linear-gradient(135deg, rgba(26, 26, 46, 0.8) 0%, rgba(45, 45, 68, 0.6) 100%);
+            padding: 18px;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+            border: 2px solid rgba(139, 92, 246, 0.1);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        .card:hover {
+            background: linear-gradient(135deg, rgba(45, 45, 68, 0.9) 0%, rgba(61, 61, 92, 0.8) 100%);
+            transform: translateY(-4px);
+            box-shadow: 0 8px 25px rgba(139, 92, 246, 0.3);
+            border-color: rgba(139, 92, 246, 0.4);
+        }
+        .badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .badge-success { 
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+        }
+        .badge-warning { 
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+        }
+        .badge-danger { 
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+        }
+        .info-section {
+            background: rgba(45, 45, 68, 0.4);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border-left: 4px solid #8b5cf6;
+        }
+        .info-section h4 {
+            color: #a78bfa;
+            margin: 0 0 10px 0;
+            font-size: 16px;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+        }
+        .info-item {
+            background: rgba(26, 26, 46, 0.6);
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid rgba(139, 92, 246, 0.2);
+        }
+        .info-item strong {
+            color: #a78bfa;
+            display: block;
+            margin-bottom: 4px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .event-item {
+            background: rgba(45, 45, 68, 0.5);
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 6px;
+            border-left: 3px solid;
+            font-size: 13px;
+        }
+        .event-normal { border-left-color: #10b981; }
+        .event-warning { border-left-color: #f59e0b; }
+        .event-error { border-left-color: #ef4444; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏗️ SRE Quick Glance</h1>
+        <div class="cluster-info" id="clusterInfo">
+            <span>Loading...</span>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="controls">
+            <label>Namespace:</label>
+            <select id="namespaceSelect" onchange="changeNamespace()">
+                <option value="default">default</option>
+            </select>
+            <button onclick="refreshCurrentTab()">🔄 Refresh</button>
+            <button onclick="clearCache()" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">🗑️ Clear Cache</button>
+            <span id="cacheStats" style="margin-left: 10px; font-size: 0.9em; color: #9ca3af;"></span>
+        </div>
+        
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('resourceViewer')">🔍 Resource Viewer</button>
+            <button class="tab" onclick="showTab('ingresses')">🌐 Ingresses</button>
+            <button class="tab" onclick="showTab('services')">🔗 Services</button>
+            <button class="tab" onclick="showTab('pods')">📦 Pods</button>
+            <button class="tab" onclick="showTab('deployments')">🏗️ Deployments</button>
+            <button class="tab" onclick="showTab('network')">🌐 Network Tests</button>
+            <button class="tab" onclick="showTab('health')">🏥 Health</button>
+            <button class="tab" onclick="showTab('releases')">🚀 Releases</button>
+        </div>
+        
+        <div id="resourceViewer" class="tab-content active">
+            <h2>Resource Viewer</h2>
+            <div style="margin-bottom: 20px; display: flex; gap: 10px; align-items: center;">
+                <label>Resource Type:</label>
+                <select id="resourceTypeFilter" onchange="loadAllResources()" style="flex: 0 0 200px;">
+                    <option value="all">All Resources</option>
+                    <option value="Ingress">Ingresses</option>
+                    <option value="Service">Services</option>
+                    <option value="Deployment">Deployments</option>
+                    <option value="Pod">Pods</option>
+                    <option value="StatefulSet">StatefulSets</option>
+                    <option value="DaemonSet">DaemonSets</option>
+                    <option value="Job">Jobs</option>
+                    <option value="CronJob">CronJobs</option>
+                </select>
+                <input type="text" id="resourceSearchFilter" placeholder="🔍 Filter by name..." 
+                       onkeyup="filterResources()" 
+                       style="flex: 1; padding: 10px; background: rgba(45,45,68,0.6); border: 1px solid rgba(139,92,246,0.3); border-radius: 8px; color: #eee;">
+            </div>
+            <div id="resourceList" class="loading">Loading resources...</div>
+            <div id="resourceDetails" style="margin-top: 20px;"></div>
+        </div>
+        
+        <div id="ingresses" class="tab-content">
+            <h2>Ingresses</h2>
+            <div class="loading">Loading ingresses...</div>
+        </div>
+        
+        <div id="services" class="tab-content">
+            <h2>Services</h2>
+            <div class="loading">Loading services...</div>
+        </div>
+        
+        <div id="pods" class="tab-content">
+            <h2>Pods</h2>
+            <div class="loading">Loading pods...</div>
+        </div>
+        
+        <div id="deployments" class="tab-content">
+            <h2>Deployments</h2>
+            <div class="loading">Loading deployments...</div>
+        </div>
+        
+        <div id="network" class="tab-content">
+            <h2>Network Connectivity Tests</h2>
+            <div style="margin-bottom: 20px;">
+                <input type="text" id="testHost" placeholder="Hostname or IP" style="width: 300px;">
+                <input type="number" id="testPort" placeholder="Port (for TCP)" style="width: 150px;">
+                <button onclick="testDNS()">Test DNS</button>
+                <button onclick="testTCP()">Test TCP</button>
+            </div>
+            <div id="testResults"></div>
+        </div>
+        
+        <div id="health" class="tab-content">
+            <h2>Health Dashboard</h2>
+            <button onclick="analyzeHealth()">Analyze Health</button>
+            <div id="healthResults"></div>
+        </div>
+        
+        <div id="releases" class="tab-content">
+            <h2>🚀 Release Versions</h2>
+            <p style="color: #aaa; margin-bottom: 15px;">Track deployment versions and Helm releases</p>
+            <button onclick="loadReleases()">Load Releases</button>
+            <div id="releasesResults"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentNamespace = 'default';
+        let currentTab = 'health';
+
+        function showNotImplemented(containerId, featureName) {
+        const el = document.getElementById(containerId);
+        if (!el) return;
+        el.innerHTML = `
+            <div class="health-card" style="border-left: 5px solid #f59e0b;">
+            <h3>${featureName}</h3>
+            <p style="color:#d1d5db;margin:0;">
+                Not implemented yet in the Go port (MVP). Basic cluster/resource listing and network tests are working.
+            </p>
+            </div>
+        `;
+        }
+        // Load cluster info
+        async function loadClusterInfo() {
+            try {
+                const response = await fetch('/api/cluster');
+                const data = await response.json();
+                
+                document.getElementById('clusterInfo').innerHTML = `
+                    <span>🏗️ ${data.cluster_name}</span>
+                    <span>📌 ${data.context_name}</span>
+                `;
+                
+                // Populate namespace selector
+                const select = document.getElementById('namespaceSelect');
+                select.innerHTML = data.namespaces.map(ns => 
+                    `<option value="${ns}">${ns}</option>`
+                ).join('');
+            } catch (error) {
+                console.error('Error loading cluster info:', error);
+            }
+        }
+
+        function showTab(tabName) {
+            currentTab = tabName;
+            
+            // Update tabs
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(tabName).classList.add('active');
+            
+            // Load data only when tab is shown (lazy loading)
+            if (tabName === 'resourceViewer') loadAllResources();
+            else if (tabName === 'ingresses') loadIngresses();
+            else if (tabName === 'services') loadServices();
+            else if (tabName === 'pods') loadPods();
+            else if (tabName === 'deployments') loadDeployments();
+            else if (tabName === 'releases') loadReleases();
+            // Health and network tabs load on button click
+        }
+
+        function changeNamespace() {
+            currentNamespace = document.getElementById('namespaceSelect').value;
+            refreshCurrentTab();
+        }
+
+        function refreshCurrentTab() {
+            if (currentTab === 'resourceViewer') loadAllResources();
+            else if (currentTab === 'ingresses') loadIngresses();
+            else if (currentTab === 'services') loadServices();
+            else if (currentTab === 'pods') loadPods();
+            else if (currentTab === 'deployments') loadDeployments();
+            else if (currentTab === 'releases') loadReleases();
+        }
+
+        async function loadIngresses() {
+            const container = document.getElementById('ingresses');
+            container.innerHTML = '<div class="loading">Loading ingresses...</div>';
+            
+            try {
+                const response = await fetch(`/api/ingresses/${currentNamespace}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const ingresses = await response.json();
+                
+                if (!Array.isArray(ingresses)) {
+                    throw new Error('Invalid response format');
+                }
+                
+                if (ingresses.length === 0) {
+                    container.innerHTML = '<p>No ingresses found</p>';
+                    return;
+                }
+                
+                container.innerHTML = `
+                    <h2>Ingresses (${ingresses.length})</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Namespace</th>
+                                <th>Hosts</th>
+                                <th>TLS</th>
+                                <th>Backends</th>
+                                <th>Health</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${ingresses.map(ing => `
+                                <tr>
+                                    <td>${ing.name}</td>
+                                    <td>${ing.namespace}</td>
+                                    <td>${ing.hosts.join(', ')}</td>
+                                    <td>${ing.tls_enabled ? '✓' : '✗'}</td>
+                                    <td>${ing.backend_services.length}</td>
+                                    <td>${ing.status_emoji} ${ing.health_score}%</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (error) {
+                container.innerHTML = `<p style="color: #ef4444;">Error: ${error.message}</p>`;
+            }
+        }
+
+        async function loadServices() {
+            const container = document.getElementById('services');
+            container.innerHTML = '<div class="loading">Loading services...</div>';
+            
+            try {
+                const response = await fetch(`/api/services/${currentNamespace}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const services = await response.json();
+                
+                if (!Array.isArray(services)) {
+                    throw new Error('Invalid response format');
+                }
+                
+                if (services.length === 0) {
+                    container.innerHTML = '<p>No services found</p>';
+                    return;
+                }
+                
+                container.innerHTML = `
+                    <h2>Services (${services.length})</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Namespace</th>
+                                <th>Type</th>
+                                <th>Cluster IP</th>
+                                <th>Endpoints</th>
+                                <th>Health</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${services.map(svc => `
+                                <tr>
+                                    <td>${svc.name}</td>
+                                    <td>${svc.namespace}</td>
+                                    <td>${svc.type}</td>
+                                    <td>${svc.cluster_ip || 'None'}</td>
+                                    <td>${svc.endpoint_count}</td>
+                                    <td>${svc.status_emoji} ${svc.health_score}%</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (error) {
+                container.innerHTML = `<p style="color: #ef4444;">Error: ${error.message}</p>`;
+            }
+        }
+
+        async function loadPods() {
+            const container = document.getElementById('pods');
+            container.innerHTML = '<div class="loading">Loading pods...</div>';
+            
+            try {
+                const response = await fetch(`/api/pods/${currentNamespace}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const pods = await response.json();
+                
+                if (!Array.isArray(pods)) {
+                    console.error('Pods response is not an array:', pods);
+                    throw new Error('Invalid response format');
+                }
+                
+                if (pods.length === 0) {
+                    container.innerHTML = '<p>No pods found</p>';
+                    return;
+                }
+                
+                container.innerHTML = `
+                    <h2>Pods (${pods.length})</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Namespace</th>
+                                <th>Phase</th>
+                                <th>Ready</th>
+                                <th>Restarts</th>
+                                <th>IP</th>
+                                <th>Health</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${pods.map(pod => `
+                                <tr>
+                                    <td>${pod.name}</td>
+                                    <td>${pod.namespace}</td>
+                                    <td>${pod.phase}</td>
+                                    <td>${pod.ready ? '✓' : '✗'}</td>
+                                    <td>${pod.restarts}</td>
+                                    <td>${pod.ip || 'N/A'}</td>
+                                    <td>${pod.status_emoji} ${pod.health_score}%</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (error) {
+                console.error('Error loading pods:', error);
+                container.innerHTML = `<p style="color: #ef4444;">Error loading pods: ${error.message}</p>`;
+            }
+        }
+
+        async function loadDeployments() {
+            const container = document.getElementById('deployments');
+            container.innerHTML = '<div class="loading">Loading deployments...</div>';
+            
+            try {
+                const response = await fetch(`/api/deployments/${currentNamespace}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const deployments = await response.json();
+                
+                if (!Array.isArray(deployments)) {
+                    throw new Error('Invalid response format');
+                }
+                
+                if (deployments.length === 0) {
+                    container.innerHTML = '<p>No deployments found</p>';
+                    return;
+                }
+                
+                container.innerHTML = `
+                    <h2>Deployments (${deployments.length})</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Namespace</th>
+                                <th>Desired</th>
+                                <th>Ready</th>
+                                <th>Available</th>
+                                <th>Health</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${deployments.map(dep => `
+                                <tr>
+                                    <td>${dep.name}</td>
+                                    <td>${dep.namespace}</td>
+                                    <td>${dep.replicas_desired}</td>
+                                    <td>${dep.replicas_ready}</td>
+                                    <td>${dep.replicas_available}</td>
+                                    <td>${dep.status_emoji} ${dep.health_score}%</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (error) {
+                container.innerHTML = `<p style="color: #ef4444;">Error: ${error.message}</p>`;
+            }
+        }
+
+        async function testDNS() {
+            const host = document.getElementById('testHost').value;
+            if (!host) {
+                alert('Please enter a hostname');
+                return;
+            }
+            
+            const results = document.getElementById('testResults');
+            results.innerHTML += '<div>Testing DNS...</div>';
+            
+            try {
+                const response = await fetch('/api/network/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ hostname: host, test_type: 'dns' })
+                });
+                const data = await response.json();
+                
+                const color = data.success ? '#10b981' : '#ef4444';
+                results.innerHTML += `
+                    <div style="background: #2d2d44; padding: 10px; margin: 10px 0; border-left: 4px solid ${color};">
+                        ${data.status_emoji} ${data.message} (${data.latency_ms.toFixed(2)}ms)
+                    </div>
+                `;
+            } catch (error) {
+                results.innerHTML += `<div style="color: #ef4444;">Error: ${error.message}</div>`;
+            }
+        }
+
+        async function testTCP() {
+            const host = document.getElementById('testHost').value;
+            const port = document.getElementById('testPort').value;
+            
+            if (!host || !port) {
+                alert('Please enter hostname and port');
+                return;
+            }
+            
+            const results = document.getElementById('testResults');
+            results.innerHTML += '<div>Testing TCP...</div>';
+            
+            try {
+                const response = await fetch('/api/network/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ hostname: host, port: parseInt(port), test_type: 'tcp' })
+                });
+                const data = await response.json();
+                
+                const color = data.success ? '#10b981' : '#ef4444';
+                results.innerHTML += `
+                    <div style="background: #2d2d44; padding: 10px; margin: 10px 0; border-left: 4px solid ${color};">
+                        ${data.status_emoji} ${data.message} (${data.latency_ms.toFixed(2)}ms)
+                    </div>
+                `;
+            } catch (error) {
+                results.innerHTML += `<div style="color: #ef4444;">Error: ${error.message}</div>`;
+            }
+        }
+
+        async function analyzeHealth() {
+            const container = document.getElementById('healthResults');
+            container.innerHTML = '<div class="loading">Analyzing cluster health...</div>';
+            
+            try {
+                const response = await fetch(`/api/health/${currentNamespace}`);
+                const data = await response.json();
+                
+                container.innerHTML = `
+                    <div class="health-card">
+                        <h3>📊 Resource Summary</h3>
+                        <div class="health-stats">
+                            <div class="stat">
+                                <div class="stat-value">${data.summary.nodes || 0}</div>
+                                <div class="stat-label">Nodes</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-value">${data.summary.ingresses}</div>
+                                <div class="stat-label">Ingresses</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-value">${data.summary.services}</div>
+                                <div class="stat-label">Services</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-value">${data.summary.deployments}</div>
+                                <div class="stat-label">Deployments</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-value">${data.summary.pods}</div>
+                                <div class="stat-label">Pods</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    ${data.nodes && data.nodes.length > 0 ? `
+                        <div class="health-card">
+                            <h3>🖥️ Cluster Nodes</h3>
+                            <div style="display: grid; gap: 10px;">
+                                ${data.nodes.map(node => `
+                                    <div class="info-section">
+                                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                                            <strong style="color: #a78bfa;">${node.name}</strong>
+                                            <span class="badge ${node.status === 'Ready' ? 'badge-success' : 'badge-danger'}">
+                                                ${node.status}
+                                            </span>
+                                        </div>
+                                        <div class="info-grid" style="margin-top: 10px;">
+                                            <div class="info-item"><strong>CPU</strong><div>${node.cpu}</div></div>
+                                            <div class="info-item"><strong>Memory</strong><div>${node.memory}</div></div>
+                                            <div class="info-item"><strong>OS</strong><div style="font-size: 0.85em;">${node.os}</div></div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    <div class="health-card">
+                        <h3>📦 Pod Health</h3>
+                        <div class="health-stats">
+                            <div class="stat" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                                <div class="stat-value">${data.pod_health.healthy}</div>
+                                <div class="stat-label">🟢 Healthy</div>
+                            </div>
+                            <div class="stat" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                                <div class="stat-value">${data.pod_health.degraded}</div>
+                                <div class="stat-label">🟡 Degraded</div>
+                            </div>
+                            <div class="stat" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
+                                <div class="stat-value">${data.pod_health.critical}</div>
+                                <div class="stat-label">🔴 Critical</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    ${data.deployment_health ? `
+                        <div class="health-card">
+                            <h3>🏗️ Deployment Health</h3>
+                            <div class="health-stats">
+                                <div class="stat" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                                    <div class="stat-value">${data.deployment_health.healthy}</div>
+                                    <div class="stat-label">🟢 Healthy</div>
+                                </div>
+                                <div class="stat" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                                    <div class="stat-value">${data.deployment_health.degraded}</div>
+                                    <div class="stat-label">🟡 Degraded</div>
+                                </div>
+                                <div class="stat" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
+                                    <div class="stat-value">${data.deployment_health.critical}</div>
+                                    <div class="stat-label">🔴 Critical</div>
+                                </div>
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    ${data.service_health ? `
+                        <div class="health-card">
+                            <h3>🔗 Service Health</h3>
+                            <div class="health-stats">
+                                <div class="stat" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                                    <div class="stat-value">${data.service_health.with_endpoints}</div>
+                                    <div class="stat-label">✓ With Endpoints</div>
+                                </div>
+                                <div class="stat" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
+                                    <div class="stat-value">${data.service_health.without_endpoints}</div>
+                                    <div class="stat-label">✗ No Endpoints</div>
+                                </div>
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    ${data.cluster_events && data.cluster_events.length > 0 ? `
+                        <div class="health-card">
+                            <h3>📰 Recent Cluster Events</h3>
+                            <div style="max-height: 400px; overflow-y: auto;">
+                                ${data.cluster_events.map(event => {
+                                    const eventClass = event.type === 'Normal' ? 'event-normal' : event.type === 'Warning' ? 'event-warning' : 'event-error';
+                                    return `
+                                        <div class="event-item ${eventClass}">
+                                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 6px;">
+                                                <div>
+                                                    <strong style="color: #a78bfa;">${event.reason}</strong>
+                                                    <span style="margin-left: 10px; font-size: 0.85em; opacity: 0.8;">${event.resource}</span>
+                                                </div>
+                                                <div style="text-align: right;">
+                                                    <span class="badge" style="font-size: 0.75em; padding: 2px 8px;">${event.type}</span>
+                                                    <div style="font-size: 0.75em; opacity: 0.7; margin-top: 2px;">Count: ${event.count}</div>
+                                                </div>
+                                            </div>
+                                            <div style="font-size: 0.9em; margin-bottom: 4px;">${event.message}</div>
+                                            <div style="font-size: 0.8em; opacity: 0.7;">${event.time}</div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    ${data.issues && data.issues.length > 0 ? `
+                        <div class="health-card">
+                            <h3>⚠️ Top Issues</h3>
+                            ${data.issues.map(issue => `
+                                <div style="background: rgba(239, 68, 68, 0.1); padding: 12px; margin: 10px 0; border-radius: 8px; border-left: 4px solid #ef4444;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <span>${issue.emoji} ${issue.resource_name}</span>
+                                        <span class="badge badge-danger">${issue.severity.toUpperCase()}</span>
+                                    </div>
+                                    <div style="margin-top: 6px; font-size: 0.9em; color: #d1d5db;">${issue.message}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : '<div class="health-card"><div style="text-align: center; padding: 20px;"><span style="font-size: 48px;">✓</span><p style="color: #10b981; font-size: 18px; margin-top: 10px;">No issues detected</p></div></div>'}
+                `;
+            } catch (error) {
+                container.innerHTML = `<p style="color: #ef4444;">Error: ${error.message}</p>`;
+            }
+        }
+
+        async function loadReleases() {
+            const container = document.getElementById('releasesResults');
+            container.innerHTML = '<div class="loading">Loading release information...</div>';
+            
+            try {
+                const response = await fetch(`/api/releases/${currentNamespace}`);
+                const releases = await response.json();
+                
+                if (releases.length === 0) {
+                    container.innerHTML = '<p>No deployments found in this namespace</p>';
+                    return;
+                }
+                
+                let html = '<div style="display: grid; gap: 20px;">';
+                
+                releases.forEach(release => {
+                    const hasVersion = release.version || release.helm_release;
+                    const versionBadgeColor = hasVersion ? '#10b981' : '#6b7280';
+                    
+                    html += `
+                        <div class="health-card" style="background: linear-gradient(135deg, rgba(45,45,68,0.9) 0%, rgba(26,26,46,0.9) 100%);">
+                            <div style="display: flex; justify-content: between; align-items: start; margin-bottom: 15px;">
+                                <div style="flex: 1;">
+                                    <h3 style="color: #a78bfa; margin-bottom: 8px;">
+                                        🚀 ${release.deployment_name}
+                                    </h3>
+                                    ${release.app_name ? `<div style="color: #9ca3af; font-size: 0.9em; margin-bottom: 4px;">App: ${release.app_name}</div>` : ''}
+                                </div>
+                                ${release.version ? `
+                                    <div class="badge" style="background: ${versionBadgeColor}; font-size: 14px; padding: 8px 16px;">
+                                        v${release.version}
+                                    </div>
+                                ` : ''}
+                            </div>
+                            
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <strong>Namespace</strong>
+                                    <div>${release.namespace}</div>
+                                </div>
+                                <div class="info-item">
+                                    <strong>Replicas</strong>
+                                    <div>${release.replicas}</div>
+                                </div>
+                                ${release.instance ? `
+                                    <div class="info-item">
+                                        <strong>Instance</strong>
+                                        <div>${release.instance}</div>
+                                    </div>
+                                ` : ''}
+                                <div class="info-item">
+                                    <strong>Created</strong>
+                                    <div style="font-size: 0.85em;">${new Date(release.created_at).toLocaleDateString()}</div>
+                                </div>
+                            </div>
+                            
+                            ${release.image_tags && release.image_tags.length > 0 ? `
+                                <div class="info-section" style="margin-top: 15px;">
+                                    <h4 style="color: #c4b5fd; margin-bottom: 10px;">🐳 Container Images</h4>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                                        ${release.image_tags.map(tag => `
+                                            <span class="badge" style="background: rgba(99,102,241,0.3); font-family: monospace; font-size: 0.85em;">
+                                                ${tag}
+                                            </span>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
+                            
+                            ${release.helm_release ? `
+                                <div class="info-section" style="margin-top: 15px; padding: 15px; background: rgba(139,92,246,0.15); border-radius: 8px; border-left: 4px solid #8b5cf6;">
+                                    <h4 style="color: #c4b5fd; margin-bottom: 12px;">⎈ Helm Release: ${release.helm_release.name}</h4>
+                                    <div class="info-grid">
+                                        <div class="info-item">
+                                            <strong>Chart</strong>
+                                            <div>${release.helm_release.chart}</div>
+                                        </div>
+                                        <div class="info-item">
+                                            <strong>Chart Version</strong>
+                                            <div>${release.helm_release.chart_version}</div>
+                                        </div>
+                                        <div class="info-item">
+                                            <strong>App Version</strong>
+                                            <div>${release.helm_release.app_version}</div>
+                                        </div>
+                                        <div class="info-item">
+                                            <strong>Status</strong>
+                                            <div>
+                                                <span class="badge ${release.helm_release.status === 'deployed' ? 'badge-success' : 'badge-warning'}">
+                                                    ${release.helm_release.status}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div class="info-item">
+                                            <strong>Revision</strong>
+                                            <div>${release.helm_release.revision}</div>
+                                        </div>
+                                        <div class="info-item">
+                                            <strong>Last Updated</strong>
+                                            <div style="font-size: 0.85em;">${release.helm_release.updated}</div>
+                                        </div>
+                                    </div>
+                                    ${release.helm_release.description ? `
+                                        <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(139,92,246,0.3); font-size: 0.9em; color: #d1d5db;">
+                                            ${release.helm_release.description}
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            ` : `
+                                <div style="margin-top: 15px; padding: 12px; background: rgba(107,114,128,0.1); border-radius: 8px; border-left: 4px solid #6b7280;">
+                                    <p style="color: #9ca3af; font-size: 0.9em; margin: 0;">
+                                        ℹ️ No Helm release information available (manual deployment)
+                                    </p>
+                                </div>
+                            `}
+                        </div>
+                    `;
+                });
+                
+                html += '</div>';
+                container.innerHTML = html;
+                
+            } catch (error) {
+                container.innerHTML = `<p style="color: #ef4444;">Error: ${error.message}</p>`;
+            }
+        }
+
+        // Resource Viewer Functions
+        async function loadAllResources() {
+            const container = document.getElementById('resourceList');
+            const detailsContainer = document.getElementById('resourceDetails');
+            const resourceType = document.getElementById('resourceTypeFilter').value;
+            
+            container.innerHTML = '<div class="loading">⚡ Loading resources... (optimized for large clusters)<br><small>Using cache when available</small></div>';
+            detailsContainer.innerHTML = '';
+            
+            try {
+                const startTime = Date.now();
+                const typeFilter = resourceType !== 'all' ? `&resource_type=${resourceType}` : '';
+                const response = await fetch(`/api/resources/${currentNamespace}?limit=500${typeFilter}&lightweight=true`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                const loadTime = ((Date.now() - startTime) / 1000).toFixed(2);
+                
+                // Handle both old array format and new paginated format
+                let resources, total, cached, fetchTime;
+                if (Array.isArray(data)) {
+                    resources = data;
+                    total = data.length;
+                    cached = false;
+                } else {
+                    resources = data.resources || [];
+                    total = data.total || resources.length;
+                    cached = data.cached || false;
+                    fetchTime = data.fetch_time;
+                }
+                
+                if (resources.length === 0) {
+                    container.innerHTML = '<p>No resources found in this namespace</p>';
+                    return;
+                }
+                
+                // Group resources by type
+                const grouped = {};
+                resources.forEach(r => {
+                    if (!grouped[r.resource_type]) {
+                        grouped[r.resource_type] = [];
+                    }
+                    grouped[r.resource_type].push(r);
+                });
+                
+                // Display performance info
+                const perfBadge = cached 
+                    ? `<span class="badge" style="background: #10b981;">📦 Cached (instant)</span>`
+                    : `<span class="badge" style="background: #6366f1;">⚡ Loaded in ${fetchTime || loadTime + 's'}</span>`;
+                
+                const modeInfo = cached ? '' : '<small style="color: #9ca3af; margin-left: 10px;">Using lightweight mode for speed</small>';
+                
+                // Display grouped resources
+                let html = `
+                    <div style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong>Found ${total} resource(s)</strong>
+                            ${modeInfo}
+                        </div>
+                        ${perfBadge}
+                    </div>
+                `;
+                
+                Object.keys(grouped).sort().forEach(type => {
+                    const items = grouped[type];
+                    const icon = getResourceIcon(type);
+                    
+                    html += `
+                        <div style="margin-bottom: 20px;">
+                            <h3 style="color: #8b5cf6;">${icon} ${type}s (${items.length})</h3>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px;">
+                    `;
+                    
+                    items.forEach(resource => {
+                        const healthColor = resource.health_score >= 80 ? '#10b981' : 
+                                          resource.health_score >= 60 ? '#f59e0b' : '#ef4444';
+                        
+                        html += `
+                            <div class="card" style="cursor: pointer; border-left: 4px solid ${healthColor};" 
+                                 onclick="loadResourceDetails('${resource.resource_type}', '${resource.namespace}', '${resource.name}')">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <strong>${resource.name}</strong>
+                                        <div style="font-size: 0.9em; color: #9ca3af;">${resource.namespace}</div>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        <div style="font-size: 0.9em; color: ${healthColor};">${resource.status}</div>
+                                        <div style="font-size: 0.8em; color: #9ca3af;">Health: ${resource.health_score}%</div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    html += '</div></div>';
+                });
+                
+                container.innerHTML = html;
+            } catch (error) {
+                container.innerHTML = `<p style="color: #ef4444;">Error loading resources: ${error.message}</p>`;
+            }
+        }
+
+        async function loadResourceDetails(resourceType, namespace, name) {
+            const container = document.getElementById('resourceDetails');
+            container.innerHTML = '<div class="loading">Loading resource details...</div>';
+            
+            console.log('Loading resource:', resourceType, namespace, name);
+            
+            try {
+                const url = `/api/resource/${encodeURIComponent(resourceType)}/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}`;
+                console.log('Fetching URL:', url);
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    console.error('Error response:', errorData);
+                    throw new Error(`HTTP ${response.status}: ${response.statusText} - ${JSON.stringify(errorData)}`);
+                }
+                
+                const resource = await response.json();
+                
+                const healthEmoji = resource.health_score >= 80 ? '🟢' : resource.health_score >= 60 ? '🟡' : '🔴';
+                
+                let html = `
+                    <div class="health-card" style="background: linear-gradient(135deg, rgba(45,45,68,0.9) 0%, rgba(26,26,46,0.9) 100%); border-left: 5px solid ${getStatusColor(resource.health_score)};">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <h2 style="margin: 0; display: flex; align-items: center; gap: 12px;">
+                                ${getResourceIcon(resource.resource_type)} ${resource.name}
+                            </h2>
+                            <div style="text-align: right;">
+                                <div class="badge" style="background: ${getStatusColor(resource.health_score)}; font-size: 16px;">
+                                    ${healthEmoji} ${resource.health_score}%
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="info-grid" style="margin-bottom: 20px;">
+                            <div class="info-item">
+                                <strong>Type</strong>
+                                <div>${resource.resource_type}</div>
+                            </div>
+                            <div class="info-item">
+                                <strong>Namespace</strong>
+                                <div>${resource.namespace}</div>
+                            </div>
+                            <div class="info-item">
+                                <strong>Status</strong>
+                                <div style="color: ${getStatusColor(resource.health_score)};">${resource.status}</div>
+                            </div>
+                        </div>
+                        
+                        ${formatDetails(resource.details)}
+                `;
+                
+                // Show relationships
+                if (resource.relationships && resource.relationships.length > 0) {
+                    // Group relationships by type
+                    const relGroups = {};
+                    resource.relationships.forEach(rel => {
+                        if (!relGroups[rel.relationship_type]) {
+                            relGroups[rel.relationship_type] = [];
+                        }
+                        relGroups[rel.relationship_type].push(rel);
+                    });
+                    
+                    html += '<h3 style="margin-top: 20px; color: #8b5cf6;">🔗 Relationships</h3>';
+                    
+                    Object.keys(relGroups).forEach(relType => {
+                        const rels = relGroups[relType];
+                        html += `
+                            <div style="margin: 15px 0;">
+                                <h4 style="color: #f59e0b;">${relType} (${rels.length})</h4>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px;">
+                        `;
+                        
+                        rels.forEach(rel => {
+                            const icon = getResourceIcon(rel.resource_type);
+                            html += `
+                                <div class="card" style="cursor: pointer; background: #2d2d44;" 
+                                     onclick="loadResourceDetails('${rel.resource_type}', '${namespace}', '${rel.resource_name}')">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <div>
+                                            <strong>${icon} ${rel.resource_name}</strong>
+                                            <div style="font-size: 0.9em; color: #9ca3af;">${rel.resource_type}</div>
+                                        </div>
+                                    </div>
+                                    ${rel.details ? formatRelationshipDetails(rel.details) : ''}
+                                </div>
+                            `;
+                        });
+                        
+                        html += '</div></div>';
+                    });
+                } else {
+                    html += '<p style="color: #9ca3af; margin-top: 20px;">No relationships found</p>';
+                }
+                
+                html += '</div>';
+                container.innerHTML = html;
+                
+                // Scroll to details
+                container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            } catch (error) {
+                container.innerHTML = `<p style="color: #ef4444;">Error loading details: ${error.message}</p>`;
+            }
+        }
+
+        function getResourceIcon(resourceType) {
+            const icons = {
+                'Ingress': '🌐',
+                'Service': '🔗',
+                'Pod': '📦',
+                'Deployment': '🏗️',
+                'StatefulSet': '💾',
+                'DaemonSet': '👥',
+                'Job': '⚡',
+                'CronJob': '⏰'
+            };
+            return icons[resourceType] || '📄';
+        }
+
+        function getStatusColor(healthScore) {
+            if (healthScore >= 80) return '#10b981';
+            if (healthScore >= 60) return '#f59e0b';
+            return '#ef4444';
+        }
+
+        function formatDetails(details) {
+            let html = '';
+            
+            // Special formatting for specific fields
+            const specialFields = ['containers', 'container_statuses', 'conditions', 'recent_events', 'replica_sets', 'ports', 'strategy'];
+            
+            // Regular fields first
+            const regularFields = Object.keys(details).filter(k => !specialFields.includes(k) && !k.includes('_count') && k !== 'labels' && k !== 'annotations');
+            if (regularFields.length > 0) {
+                html += '<div class="info-section"><h4>📋 Basic Information</h4><div class="info-grid">';
+                regularFields.forEach(key => {
+                    const value = details[key];
+                    if (typeof value !== 'object') {
+                        const displayKey = key.replace(/_/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase());
+                        html += `<div class="info-item"><strong>${displayKey}</strong><div>${value || 'N/A'}</div></div>`;
+                    }
+                });
+                html += '</div></div>';
+            }
+            
+            // Container information
+            if (details.containers && Array.isArray(details.containers)) {
+                html += '<div class="info-section"><h4>📦 Containers</h4>';
+                details.containers.forEach(container => {
+                    html += `
+                        <div style="background: rgba(26,26,46,0.6); padding: 12px; margin: 8px 0; border-radius: 6px; border-left: 3px solid #8b5cf6;">
+                            <div style="font-weight: bold; color: #a78bfa; margin-bottom: 8px;">${container.name}</div>
+                            <div class="info-grid">
+                                <div class="info-item"><strong>Image</strong><div style="font-size: 0.85em;">${container.image}</div></div>
+                                ${container.resources ? `
+                                    <div class="info-item"><strong>Resources</strong>
+                                        ${container.resources.requests ? `<div style="font-size: 0.85em;">Requests: ${JSON.stringify(container.resources.requests)}</div>` : ''}
+                                        ${container.resources.limits ? `<div style="font-size: 0.85em;">Limits: ${JSON.stringify(container.resources.limits)}</div>` : ''}
+                                    </div>
+                                ` : ''}
+                                ${container.readiness_probe ? `<div class="info-item"><strong>Readiness</strong><div>${container.readiness_probe}</div></div>` : ''}
+                                ${container.liveness_probe ? `<div class="info-item"><strong>Liveness</strong><div>${container.liveness_probe}</div></div>` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+            }
+            
+            // Container statuses
+            if (details.container_statuses && Array.isArray(details.container_statuses)) {
+                html += '<div class="info-section"><h4>🔄 Container Status</h4>';
+                details.container_statuses.forEach(status => {
+                    const stateColor = status.ready ? '#10b981' : status.state_info?.state === 'waiting' ? '#f59e0b' : '#ef4444';
+                    html += `
+                        <div style="background: rgba(26,26,46,0.6); padding: 12px; margin: 8px 0; border-radius: 6px; border-left: 3px solid ${stateColor};">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div style="font-weight: bold; color: #a78bfa;">${status.name}</div>
+                                <div style="color: ${stateColor};">${status.ready ? '✓ Ready' : '✗ Not Ready'}</div>
+                            </div>
+                            <div class="info-grid" style="margin-top: 8px;">
+                                <div class="info-item"><strong>Restarts</strong><div>${status.restart_count}</div></div>
+                                <div class="info-item"><strong>State</strong><div>${status.state_info?.state || 'unknown'}</div></div>
+                                ${status.state_info?.reason ? `<div class="info-item"><strong>Reason</strong><div>${status.state_info.reason}</div></div>` : ''}
+                            </div>
+                            ${status.state_info?.message ? `<div style="margin-top: 8px; font-size: 0.85em; color: #9ca3af;">${status.state_info.message}</div>` : ''}
+                        </div>
+                    `;
+                });
+                html += '</div>';
+            }
+            
+            // Conditions
+            if (details.conditions && Array.isArray(details.conditions)) {
+                html += '<div class="info-section"><h4>🏥 Conditions</h4>';
+                details.conditions.forEach(condition => {
+                    const condColor = condition.status === 'True' ? '#10b981' : condition.status === 'False' ? '#ef4444' : '#f59e0b';
+                    html += `
+                        <div style="background: rgba(26,26,46,0.6); padding: 10px; margin: 6px 0; border-radius: 6px; border-left: 3px solid ${condColor};">
+                            <div style="display: flex; justify-content: space-between;">
+                                <strong style="color: #a78bfa;">${condition.type}</strong>
+                                <span style="color: ${condColor};">${condition.status}</span>
+                            </div>
+                            ${condition.reason !== 'N/A' ? `<div style="font-size: 0.85em; margin-top: 4px;">Reason: ${condition.reason}</div>` : ''}
+                            ${condition.message !== 'N/A' ? `<div style="font-size: 0.85em; color: #9ca3af; margin-top: 4px;">${condition.message}</div>` : ''}
+                        </div>
+                    `;
+                });
+                html += '</div>';
+            }
+            
+            // Recent events
+            if (details.recent_events && Array.isArray(details.recent_events) && details.recent_events.length > 0) {
+                html += '<div class="info-section"><h4>📰 Recent Events</h4>';
+                details.recent_events.forEach(event => {
+                    const eventClass = event.type === 'Normal' ? 'event-normal' : event.type === 'Warning' ? 'event-warning' : 'event-error';
+                    html += `
+                        <div class="event-item ${eventClass}">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                <strong>${event.reason}</strong>
+                                <span style="font-size: 0.85em; opacity: 0.8;">Count: ${event.count}</span>
+                            </div>
+                            <div style="font-size: 0.9em;">${event.message}</div>
+                            <div style="font-size: 0.8em; opacity: 0.7; margin-top: 4px;">${event.time}</div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+            }
+            
+            // Ports
+            if (details.ports && Array.isArray(details.ports) && details.ports.length > 0) {
+                html += '<div class="info-section"><h4>🔌 Ports</h4><div class="info-grid">';
+                details.ports.forEach(port => {
+                    html += `
+                        <div class="info-item">
+                            <strong>${port.name || 'unnamed'}</strong>
+                            <div>${port.port}${port.node_port ? ` → ${port.node_port}` : ''} (${port.protocol})</div>
+                            ${port.target_port ? `<div style="font-size: 0.85em; color: #9ca3af;">Target: ${port.target_port}</div>` : ''}
+                        </div>
+                    `;
+                });
+                html += '</div></div>';
+            }
+            
+            // Strategy (for deployments)
+            if (details.strategy && typeof details.strategy === 'object') {
+                html += '<div class="info-section"><h4>⚙️ Update Strategy</h4><div class="info-grid">';
+                Object.keys(details.strategy).forEach(key => {
+                    const displayKey = key.replace(/_/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase());
+                    html += `<div class="info-item"><strong>${displayKey}</strong><div>${details.strategy[key]}</div></div>`;
+                });
+                html += '</div></div>';
+            }
+            
+            // Labels
+            if (details.labels && Object.keys(details.labels).length > 0) {
+                html += '<div class="info-section"><h4>🏷️ Labels</h4><div style="display: flex; flex-wrap: wrap; gap: 8px;">';
+                Object.keys(details.labels).forEach(key => {
+                    html += `<span class="badge" style="background: rgba(139,92,246,0.3);">${key}: ${details.labels[key]}</span>`;
+                });
+                html += '</div></div>';
+            }
+            
+            return html;
+        }
+
+        function formatRelationshipDetails(details) {
+            if (!details || Object.keys(details).length === 0) return '';
+            
+            let html = '<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #3d3d5c; font-size: 0.85em; color: #9ca3af;">';
+            
+            Object.keys(details).forEach(key => {
+                const value = details[key];
+                const displayKey = key.replace(/_/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase());
+                
+                if (Array.isArray(value) && value.length > 0) {
+                    html += `<div><strong>${displayKey}:</strong> ${value.join(', ')}</div>`;
+                } else if (typeof value === 'string' || typeof value === 'number') {
+                    html += `<div><strong>${displayKey}:</strong> ${value}</div>`;
+                }
+            });
+            
+            html += '</div>';
+            return html;
+        }
+
+        // Cache management
+        async function clearCache() {
+            try {
+                const response = await fetch('/api/cache/clear', { method: 'POST' });
+                const result = await response.json();
+                alert(result.message);
+                updateCacheStats();
+                // Refresh current tab to fetch fresh data
+                refreshCurrentTab();
+            } catch (error) {
+                alert('Error clearing cache: ' + error.message);
+            }
+        }
+
+        async function updateCacheStats() {
+            try {
+                const response = await fetch('/api/cache/stats');
+                const stats = await response.json();
+                const statsEl = document.getElementById('cacheStats');
+                if (statsEl) {
+                    statsEl.textContent = `📦 Cache: ${stats.size} items`;
+                }
+            } catch (error) {
+                console.error('Error fetching cache stats:', error);
+            }
+        }
+
+        // Client-side filtering for loaded resources
+        function filterResources() {
+            const searchText = document.getElementById('resourceSearchFilter').value.toLowerCase();
+            const cards = document.querySelectorAll('#resourceList .card');
+            
+            cards.forEach(card => {
+                const text = card.textContent.toLowerCase();
+                if (text.includes(searchText)) {
+                    card.style.display = '';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+
+        // Initialize
+        loadClusterInfo();
+        // Don't auto-load resources - wait for user to interact (performance optimization)
+        // Display a prompt instead
+        document.getElementById('resourceList').innerHTML = '<div style="text-align: center; padding: 40px; color: #9ca3af;"><h3>👆 Select a resource type above to load resources</h3><p>Optimized for large clusters with 10k+ resources</p></div>';
+        updateCacheStats();
+        
+        // Update cache stats every 10 seconds
+        setInterval(updateCacheStats, 10000);
+    </script>
+</body>
+</html>
