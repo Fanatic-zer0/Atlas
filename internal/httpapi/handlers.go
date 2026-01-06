@@ -245,26 +245,53 @@ func getIngresses(application *app.App) http.HandlerFunc {
 		for _, ing := range ingresses.Items {
 			hosts := []string{}
 			for _, rule := range ing.Spec.Rules {
-				hosts = append(hosts, rule.Host)
-			}
-
-			backends := []string{}
-			for _, rule := range ing.Spec.Rules {
-				if rule.HTTP != nil {
-					for _, path := range rule.HTTP.Paths {
-						backends = append(backends, path.Backend.Service.Name)
-					}
+				if rule.Host != "" {
+					hosts = append(hosts, rule.Host)
 				}
 			}
 
+			// Build detailed rules with paths and backends
+			rules := []map[string]interface{}{}
+			for _, rule := range ing.Spec.Rules {
+				if rule.HTTP != nil {
+					paths := []map[string]interface{}{}
+					for _, p := range rule.HTTP.Paths {
+						pathInfo := map[string]interface{}{
+							"path":      p.Path,
+							"path_type": string(*p.PathType),
+						}
+						if p.Backend.Service != nil {
+							pathInfo["service_name"] = p.Backend.Service.Name
+							if p.Backend.Service.Port.Number != 0 {
+								pathInfo["service_port"] = p.Backend.Service.Port.Number
+							} else {
+								pathInfo["service_port"] = p.Backend.Service.Port.Name
+							}
+						}
+						paths = append(paths, pathInfo)
+					}
+					rules = append(rules, map[string]interface{}{
+						"host":  rule.Host,
+						"paths": paths,
+					})
+				}
+			}
+
+			// IngressClass
+			ingressClass := ""
+			if ing.Spec.IngressClassName != nil {
+				ingressClass = *ing.Spec.IngressClassName
+			}
+
 			result = append(result, map[string]interface{}{
-				"name":             ing.Name,
-				"namespace":        ing.Namespace,
-				"hosts":            hosts,
-				"tls_enabled":      len(ing.Spec.TLS) > 0,
-				"backend_services": backends,
-				"health_score":     100,
-				"status_emoji":     "✓",
+				"name":          ing.Name,
+				"namespace":     ing.Namespace,
+				"ingress_class": ingressClass,
+				"hosts":         hosts,
+				"rules":         rules,
+				"tls_enabled":   len(ing.Spec.TLS) > 0,
+				"health_score":  100,
+				"status_emoji":  "✓",
 			})
 		}
 
@@ -292,14 +319,28 @@ func getServices(application *app.App) http.HandlerFunc {
 			return
 		}
 
-		// Transform to response format
+		// Transform to response format with detailed port and selector info
 		result := []map[string]interface{}{}
 		for _, svc := range services {
+			// Format ports with target ports
+			ports := []map[string]interface{}{}
+			for _, p := range svc.Ports {
+				ports = append(ports, map[string]interface{}{
+					"name":        p.Name,
+					"protocol":    p.Protocol,
+					"port":        p.Port,
+					"target_port": p.TargetPort,
+					"node_port":   p.NodePort,
+				})
+			}
+
 			result = append(result, map[string]interface{}{
 				"name":           svc.Name,
 				"namespace":      svc.Namespace,
 				"type":           svc.Type,
 				"cluster_ip":     svc.ClusterIP,
+				"ports":          ports,
+				"selector":       svc.Selector,
 				"endpoint_count": svc.EndpointCount,
 				"health_score":   svc.HealthScore,
 				"status_emoji":   svc.StatusEmoji,
@@ -366,12 +407,54 @@ func getDeployments(application *app.App) http.HandlerFunc {
 
 		result := []map[string]interface{}{}
 		for _, dep := range deployments.Items {
+			// Extract container images
+			images := []string{}
+			for _, container := range dep.Spec.Template.Spec.Containers {
+				images = append(images, container.Image)
+			}
+
+			// Extract resource requests/limits
+			resources := []map[string]interface{}{}
+			for _, container := range dep.Spec.Template.Spec.Containers {
+				containerRes := map[string]interface{}{
+					"name": container.Name,
+				}
+				if container.Resources.Requests != nil {
+					requests := map[string]string{}
+					if cpu, ok := container.Resources.Requests["cpu"]; ok {
+						requests["cpu"] = cpu.String()
+					}
+					if mem, ok := container.Resources.Requests["memory"]; ok {
+						requests["memory"] = mem.String()
+					}
+					containerRes["requests"] = requests
+				}
+				if container.Resources.Limits != nil {
+					limits := map[string]string{}
+					if cpu, ok := container.Resources.Limits["cpu"]; ok {
+						limits["cpu"] = cpu.String()
+					}
+					if mem, ok := container.Resources.Limits["memory"]; ok {
+						limits["memory"] = mem.String()
+					}
+					containerRes["limits"] = limits
+				}
+				resources = append(resources, containerRes)
+			}
+
+			desired := int32(0)
+			if dep.Spec.Replicas != nil {
+				desired = *dep.Spec.Replicas
+			}
+
 			result = append(result, map[string]interface{}{
 				"name":               dep.Name,
 				"namespace":          dep.Namespace,
-				"replicas_desired":   *dep.Spec.Replicas,
+				"replicas_desired":   desired,
 				"replicas_ready":     dep.Status.ReadyReplicas,
 				"replicas_available": dep.Status.AvailableReplicas,
+				"images":             images,
+				"resources":          resources,
 				"health_score":       calculateDeploymentHealth(&dep),
 				"status_emoji":       getDeploymentStatusEmoji(&dep),
 			})
@@ -667,6 +750,96 @@ func getCacheStats(application *app.App) http.HandlerFunc {
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"size": application.Cache.Size(),
 		})
+	}
+}
+
+func getConfigMaps(application *app.App) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		vars := mux.Vars(r)
+		namespace := vars["namespace"]
+
+		// Check cache
+		cacheKey := fmt.Sprintf("configmaps:%s", namespace)
+		if cached, ok := application.Cache.Get(cacheKey); ok {
+			json.NewEncoder(w).Encode(cached)
+			return
+		}
+
+		configMaps, err := application.K8sClient.Clientset.CoreV1().ConfigMaps(namespace).List(r.Context(), metav1.ListOptions{})
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		result := []map[string]interface{}{}
+		for _, cm := range configMaps.Items {
+			keys := []string{}
+			for k := range cm.Data {
+				keys = append(keys, k)
+			}
+			for k := range cm.BinaryData {
+				keys = append(keys, k)
+			}
+
+			result = append(result, map[string]interface{}{
+				"name":      cm.Name,
+				"namespace": cm.Namespace,
+				"keys":      keys,
+				"key_count": len(keys),
+				"created":   cm.CreationTimestamp.Format(time.RFC3339),
+			})
+		}
+
+		// Cache the result for 30 seconds
+		response := map[string]interface{}{"configmaps": result}
+		application.Cache.Set(cacheKey, response, 30*time.Second)
+
+		json.NewEncoder(w).Encode(response)
+	}
+}
+
+func getSecrets(application *app.App) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		vars := mux.Vars(r)
+		namespace := vars["namespace"]
+
+		// Check cache
+		cacheKey := fmt.Sprintf("secrets:%s", namespace)
+		if cached, ok := application.Cache.Get(cacheKey); ok {
+			json.NewEncoder(w).Encode(cached)
+			return
+		}
+
+		secrets, err := application.K8sClient.Clientset.CoreV1().Secrets(namespace).List(r.Context(), metav1.ListOptions{})
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		result := []map[string]interface{}{}
+		for _, secret := range secrets.Items {
+			keys := []string{}
+			for k := range secret.Data {
+				keys = append(keys, k)
+			}
+
+			result = append(result, map[string]interface{}{
+				"name":      secret.Name,
+				"namespace": secret.Namespace,
+				"type":      string(secret.Type),
+				"keys":      keys,
+				"key_count": len(keys),
+				"created":   secret.CreationTimestamp.Format(time.RFC3339),
+			})
+		}
+
+		// Cache the result for 30 seconds
+		response := map[string]interface{}{"secrets": result}
+		application.Cache.Set(cacheKey, response, 30*time.Second)
+
+		json.NewEncoder(w).Encode(response)
 	}
 }
 

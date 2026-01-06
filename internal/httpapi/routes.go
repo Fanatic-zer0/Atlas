@@ -25,6 +25,8 @@ func SetupRoutes(application *app.App) *mux.Router {
 	r.HandleFunc("/api/deployments/{namespace}", getDeployments(application)).Methods("GET")
 	r.HandleFunc("/api/health/{namespace}", getHealth(application)).Methods("GET")
 	r.HandleFunc("/api/releases/{namespace}", getReleases(application)).Methods("GET")
+	r.HandleFunc("/api/configmaps/{namespace}", getConfigMaps(application)).Methods("GET")
+	r.HandleFunc("/api/secrets/{namespace}", getSecrets(application)).Methods("GET")
 	r.HandleFunc("/api/network/test", testNetwork(application)).Methods("POST")
 	r.HandleFunc("/api/cache/clear", clearCache(application)).Methods("POST")
 	r.HandleFunc("/api/cache/stats", getCacheStats(application)).Methods("GET")

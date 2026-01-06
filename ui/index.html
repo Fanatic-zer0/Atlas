@@ -3,23 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SRE Quick Glance </title>
+    <title>SRE Dashboard</title>
+    <!-- Lightweight CSS animations library - loaded asynchronously for performance -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"></noscript>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            background: linear-gradient(135deg, #0A0E14 0%, #0D1017 50%, #11151C 100%);
             background-attachment: fixed;
-            color: #eee;
+            color: #BFBDB6;
             line-height: 1.6;
             margin: 0;
             padding: 0;
         }
         .header {
-            background: linear-gradient(135deg, #4b63cb 0%, #70568a 100%);
+            background: linear-gradient(135deg, #0D1017 0%, #11151C 50%, #1A1F29 100%);
             padding: 25px 20px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-            border-bottom: 3px solid #8b5cf6;
+            box-shadow: 0 8px 32px rgba(255, 143, 64, 0.15);
+            border-bottom: 3px solid #FF8F40;
         }
         .header h1 {
             font-size: 32px;
@@ -37,10 +40,11 @@
             flex-wrap: wrap;
         }
         .cluster-info > span {
-            background: rgba(255,255,255,0.15);
+            background: rgba(255, 143, 64, 0.15);
             padding: 6px 14px;
             border-radius: 15px;
             backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 143, 64, 0.3);
         }
         .container {
             max-width: 1600px;
@@ -52,15 +56,16 @@
             gap: 12px;
             margin-bottom: 25px;
             align-items: center;
-            background: rgba(45, 45, 68, 0.6);
+            background: rgba(17, 21, 28, 0.6);
             padding: 15px;
-            border-radius: 10px;
+            border-radius: 12px;
             backdrop-filter: blur(10px);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(92, 103, 115, 0.3);
         }
         .controls label {
             font-weight: 600;
-            color: #a78bfa;
+            color: #FFD580;
         }
         select, button, input {
             padding: 10px 16px;
@@ -71,24 +76,24 @@
             transition: all 0.3s ease;
         }
         select, input {
-            background: #1a1a2e;
-            color: #eee;
-            border: 2px solid #3d3d5c;
+            background: #0D1017;
+            color: #BFBDB6;
+            border: 2px solid rgba(92, 103, 115, 0.4);
         }
         select:focus, input:focus {
             outline: none;
-            border-color: #8b5cf6;
-            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+            border-color: #FFB454;
+            box-shadow: 0 0 0 3px rgba(255, 180, 84, 0.2);
         }
         button {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: linear-gradient(135deg, #FF8F40 0%, #E6704C 100%);
+            color: #0A0E14;
             font-weight: 600;
-            box-shadow: 0 4px 10px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 4px 10px rgba(255, 143, 64, 0.3);
         }
         button:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 15px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 6px 20px rgba(255, 143, 64, 0.4);
         }
         button:active {
             transform: translateY(0);
@@ -97,15 +102,15 @@
             display: flex;
             gap: 8px;
             margin-bottom: 25px;
-            border-bottom: 2px solid rgba(139, 92, 246, 0.3);
+            border-bottom: 2px solid rgba(92, 103, 115, 0.3);
             overflow-x: auto;
             padding-bottom: 2px;
         }
         .tab {
             padding: 14px 24px;
-            background: rgba(45, 45, 68, 0.4);
+            background: rgba(17, 21, 28, 0.5);
             border: none;
-            color: #aaa;
+            color: #5C6773;
             cursor: pointer;
             transition: all 0.3s ease;
             border-radius: 10px 10px 0 0;
@@ -113,22 +118,23 @@
             border-bottom: 3px solid transparent;
         }
         .tab:hover {
-            background: rgba(45, 45, 68, 0.7);
-            color: #eee;
+            background: rgba(17, 21, 28, 0.8);
+            color: #BFBDB6;
         }
         .tab.active {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border-bottom-color: #8b5cf6;
-            box-shadow: 0 -2px 10px rgba(139, 92, 246, 0.3);
+            background: linear-gradient(135deg, #FF8F40 0%, #E6704C 100%);
+            color: #0A0E14;
+            border-bottom-color: #FFB454;
+            box-shadow: 0 -2px 15px rgba(255, 143, 64, 0.3);
         }
         .tab-content {
             display: none;
-            background: rgba(45, 45, 68, 0.5);
+            background: rgba(17, 21, 28, 0.5);
             padding: 25px;
-            border-radius: 10px;
+            border-radius: 12px;
             backdrop-filter: blur(10px);
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(92, 103, 115, 0.2);
         }
         .tab-content.active {
             display: block;
@@ -138,8 +144,32 @@
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        /* Smooth entrance animations for cards */
+        .animate-in {
+            animation: fadeInUp 0.5s ease-out;
+        }
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        /* Pulse effect for loading states */
+        @keyframes shimmer {
+            0% { background-position: -1000px 0; }
+            100% { background-position: 1000px 0; }
+        }
+        .loading-shimmer {
+            background: linear-gradient(90deg, rgba(17,21,28,0.1) 0%, rgba(255,143,64,0.1) 50%, rgba(17,21,28,0.1) 100%);
+            background-size: 1000px 100%;
+            animation: shimmer 2s infinite;
+        }
         .tab-content h2 {
-            color: #a78bfa;
+            color: #FFB454;
             margin-top: 0;
             margin-bottom: 20px;
             font-size: 24px;
@@ -150,20 +180,23 @@
         table {
             width: 100%;
             border-collapse: collapse;
-            background: #1a1a2e;
+            background: #0D1017;
+            border-radius: 8px;
+            overflow: hidden;
         }
         th {
-            background: #667eea;
+            background: linear-gradient(135deg, #FF8F40 0%, #E6704C 100%);
             padding: 12px;
             text-align: left;
             font-weight: 600;
+            color: #0A0E14;
         }
         td {
             padding: 12px;
-            border-bottom: 1px solid #2d2d44;
+            border-bottom: 1px solid rgba(92, 103, 115, 0.2);
         }
         tr:hover {
-            background: #25253a;
+            background: rgba(17, 21, 28, 0.6);
             cursor: pointer;
         }
         .badge {
@@ -173,14 +206,14 @@
             font-size: 12px;
             font-weight: 600;
         }
-        .badge-success { background: #10b981; }
-        .badge-warning { background: #f59e0b; }
-        .badge-danger { background: #ef4444; }
+        .badge-success { background: #AAD94C; color: #0A0E14; }
+        .badge-warning { background: #FFB454; color: #0A0E14; }
+        .badge-danger { background: #F07178; color: #0A0E14; }
         .loading {
             text-align: center;
             padding: 50px;
             font-size: 18px;
-            color: #a78bfa;
+            color: #FFB454;
             animation: pulse 1.5s ease-in-out infinite;
         }
         @keyframes pulse {
@@ -188,18 +221,18 @@
             50% { opacity: 1; }
         }
         .health-card {
-            background: linear-gradient(135deg, rgba(26, 26, 46, 0.9) 0%, rgba(45, 45, 68, 0.9) 100%);
+            background: linear-gradient(135deg, rgba(13, 16, 23, 0.9) 0%, rgba(17, 21, 28, 0.8) 100%);
             padding: 25px;
             border-radius: 12px;
             margin-bottom: 25px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            border: 1px solid rgba(139, 92, 246, 0.2);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(92, 103, 115, 0.3);
         }
         .health-card h3 {
-            color: #a78bfa;
+            color: #FFB454;
             margin-top: 0;
             font-size: 20px;
-            border-bottom: 2px solid rgba(139, 92, 246, 0.3);
+            border-bottom: 2px solid rgba(92, 103, 115, 0.3);
             padding-bottom: 10px;
         }
         .health-stats {
@@ -209,17 +242,17 @@
             margin-top: 18px;
         }
         .stat {
-            background: linear-gradient(135deg, rgba(45, 45, 68, 0.7) 0%, rgba(26, 26, 46, 0.7) 100%);
+            background: linear-gradient(135deg, rgba(17, 21, 28, 0.7) 0%, rgba(13, 16, 23, 0.9) 100%);
             padding: 20px;
             border-radius: 10px;
             text-align: center;
-            border: 2px solid rgba(139, 92, 246, 0.2);
+            border: 2px solid rgba(92, 103, 115, 0.3);
             transition: all 0.3s ease;
         }
         .stat:hover {
             transform: translateY(-4px);
-            box-shadow: 0 6px 20px rgba(139, 92, 246, 0.3);
-            border-color: rgba(139, 92, 246, 0.5);
+            box-shadow: 0 8px 24px rgba(255, 143, 64, 0.2);
+            border-color: rgba(255, 143, 64, 0.5);
         }
         .stat-value {
             font-size: 36px;
@@ -229,23 +262,23 @@
         }
         .stat-label {
             font-size: 14px;
-            color: #aaa;
+            color: #5C6773;
             text-transform: uppercase;
             letter-spacing: 1px;
         }
         .card {
-            background: linear-gradient(135deg, rgba(26, 26, 46, 0.8) 0%, rgba(45, 45, 68, 0.6) 100%);
+            background: linear-gradient(135deg, rgba(13, 16, 23, 0.8) 0%, rgba(17, 21, 28, 0.6) 100%);
             padding: 18px;
             border-radius: 10px;
             transition: all 0.3s ease;
-            border: 2px solid rgba(139, 92, 246, 0.1);
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            border: 2px solid rgba(92, 103, 115, 0.25);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
         }
         .card:hover {
-            background: linear-gradient(135deg, rgba(45, 45, 68, 0.9) 0%, rgba(61, 61, 92, 0.8) 100%);
+            background: linear-gradient(135deg, rgba(17, 21, 28, 0.9) 0%, rgba(26, 31, 41, 0.7) 100%);
             transform: translateY(-4px);
-            box-shadow: 0 8px 25px rgba(139, 92, 246, 0.3);
-            border-color: rgba(139, 92, 246, 0.4);
+            box-shadow: 0 8px 28px rgba(255, 143, 64, 0.2);
+            border-color: rgba(255, 143, 64, 0.4);
         }
         .badge {
             display: inline-block;
@@ -258,26 +291,62 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
         .badge-success { 
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-            color: white;
+            background: linear-gradient(135deg, #AAD94C 0%, #91B362 100%);
+            color: #0A0E14;
         }
         .badge-warning { 
-            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-            color: white;
+            background: linear-gradient(135deg, #FFB454 0%, #E6B450 100%);
+            color: #0A0E14;
         }
         .badge-danger { 
-            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-            color: white;
+            background: linear-gradient(135deg, #F07178 0%, #D96C75 100%);
+            color: #0A0E14;
+        }
+        .collapsible-header {
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: rgba(13, 16, 23, 0.6);
+            border-radius: 8px;
+            margin-bottom: 10px;
+            transition: all 0.3s ease;
+        }
+        .collapsible-header:hover {
+            background: rgba(17, 21, 28, 0.8);
+            box-shadow: 0 2px 8px rgba(255, 143, 64, 0.2);
+        }
+        .collapsible-toggle {
+            font-size: 18px;
+            transition: transform 0.3s ease;
+            display: inline-block;
+            margin-right: 10px;
+            color: #FFB454;
+        }
+        .collapsible-toggle.collapsed {
+            transform: rotate(-90deg);
+        }
+        .collapsible-content {
+            max-height: 2000px;
+            overflow: hidden;
+            transition: max-height 0.4s ease, opacity 0.3s ease;
+            opacity: 1;
+        }
+        .collapsible-content.collapsed {
+            max-height: 0;
+            opacity: 0;
         }
         .info-section {
-            background: rgba(45, 45, 68, 0.4);
+            background: rgba(17, 21, 28, 0.5);
             padding: 15px;
             border-radius: 8px;
             margin: 15px 0;
-            border-left: 4px solid #8b5cf6;
+            border-left: 4px solid #FF8F40;
         }
         .info-section h4 {
-            color: #a78bfa;
+            color: #FFD580;
             margin: 0 0 10px 0;
             font-size: 16px;
         }
@@ -287,13 +356,13 @@
             gap: 12px;
         }
         .info-item {
-            background: rgba(26, 26, 46, 0.6);
+            background: rgba(13, 16, 23, 0.7);
             padding: 10px;
             border-radius: 6px;
-            border: 1px solid rgba(139, 92, 246, 0.2);
+            border: 1px solid rgba(92, 103, 115, 0.3);
         }
         .info-item strong {
-            color: #a78bfa;
+            color: #FFD580;
             display: block;
             margin-bottom: 4px;
             font-size: 12px;
@@ -301,21 +370,21 @@
             letter-spacing: 0.5px;
         }
         .event-item {
-            background: rgba(45, 45, 68, 0.5);
+            background: rgba(17, 21, 28, 0.6);
             padding: 12px;
             margin: 8px 0;
             border-radius: 6px;
             border-left: 3px solid;
             font-size: 13px;
         }
-        .event-normal { border-left-color: #10b981; }
-        .event-warning { border-left-color: #f59e0b; }
-        .event-error { border-left-color: #ef4444; }
+        .event-normal { border-left-color: #AAD94C; }
+        .event-warning { border-left-color: #FFB454; }
+        .event-error { border-left-color: #F07178; }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>🏗️ SRE Quick Glance</h1>
+        <h1>𖤓 SRE Dashboard</h1>
         <div class="cluster-info" id="clusterInfo">
             <span>Loading...</span>
         </div>
@@ -328,8 +397,8 @@
                 <option value="default">default</option>
             </select>
             <button onclick="refreshCurrentTab()">🔄 Refresh</button>
-            <button onclick="clearCache()" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">🗑️ Clear Cache</button>
-            <span id="cacheStats" style="margin-left: 10px; font-size: 0.9em; color: #9ca3af;"></span>
+            <button onclick="clearCache()" style="background: linear-gradient(135deg, #F07178 0%, #D96C75 100%); color: #0A0E14;">🗑️ Clear Cache</button>
+            <span id="cacheStats" style="margin-left: 10px; font-size: 0.9em; color: #5C6773;"></span>
         </div>
         
         <div class="tabs">
@@ -338,6 +407,8 @@
             <button class="tab" onclick="showTab('services')">🔗 Services</button>
             <button class="tab" onclick="showTab('pods')">📦 Pods</button>
             <button class="tab" onclick="showTab('deployments')">🏗️ Deployments</button>
+            <button class="tab" onclick="showTab('configmaps')">📝 ConfigMaps</button>
+            <button class="tab" onclick="showTab('secrets')">🔐 Secrets</button>
             <button class="tab" onclick="showTab('network')">🌐 Network Tests</button>
             <button class="tab" onclick="showTab('health')">🏥 Health</button>
             <button class="tab" onclick="showTab('releases')">🚀 Releases</button>
@@ -386,6 +457,16 @@
             <div class="loading">Loading deployments...</div>
         </div>
         
+        <div id="configmaps" class="tab-content">
+            <h2>ConfigMaps</h2>
+            <div class="loading">Loading configmaps...</div>
+        </div>
+        
+        <div id="secrets" class="tab-content">
+            <h2>Secrets</h2>
+            <div class="loading">Loading secrets...</div>
+        </div>
+        
         <div id="network" class="tab-content">
             <h2>Network Connectivity Tests</h2>
             <div style="margin-bottom: 20px;">
@@ -419,7 +500,7 @@
         const el = document.getElementById(containerId);
         if (!el) return;
         el.innerHTML = `
-            <div class="health-card" style="border-left: 5px solid #f59e0b;">
+            <div class="health-card" style="border-left: 5px solid #FFB454;">
             <h3>${featureName}</h3>
             <p style="color:#d1d5db;margin:0;">
                 Not implemented yet in the Go port (MVP). Basic cluster/resource listing and network tests are working.
@@ -434,8 +515,7 @@
                 const data = await response.json();
                 
                 document.getElementById('clusterInfo').innerHTML = `
-                    <span>🏗️ ${data.cluster_name}</span>
-                    <span>📌 ${data.context_name}</span>
+                    <span>🏗️ Cluster: ${data.cluster_name}</span>
                 `;
                 
                 // Populate namespace selector
@@ -445,6 +525,16 @@
                 ).join('');
             } catch (error) {
                 console.error('Error loading cluster info:', error);
+            }
+        }
+
+        function toggleCollapse(cardId) {
+            const content = document.getElementById(cardId + '-content');
+            const toggle = document.getElementById(cardId + '-toggle');
+            
+            if (content && toggle) {
+                content.classList.toggle('collapsed');
+                toggle.classList.toggle('collapsed');
             }
         }
 
@@ -464,6 +554,8 @@
             else if (tabName === 'services') loadServices();
             else if (tabName === 'pods') loadPods();
             else if (tabName === 'deployments') loadDeployments();
+            else if (tabName === 'configmaps') loadConfigMaps();
+            else if (tabName === 'secrets') loadSecrets();
             else if (tabName === 'releases') loadReleases();
             // Health and network tabs load on button click
         }
@@ -479,6 +571,8 @@
             else if (currentTab === 'services') loadServices();
             else if (currentTab === 'pods') loadPods();
             else if (currentTab === 'deployments') loadDeployments();
+            else if (currentTab === 'configmaps') loadConfigMaps();
+            else if (currentTab === 'secrets') loadSecrets();
             else if (currentTab === 'releases') loadReleases();
         }
 
@@ -506,33 +600,67 @@
                 
                 container.innerHTML = `
                     <h2>Ingresses (${ingresses.length})</h2>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Namespace</th>
-                                <th>Hosts</th>
-                                <th>TLS</th>
-                                <th>Backends</th>
-                                <th>Health</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${ingresses.map(ing => `
-                                <tr>
-                                    <td>${ing.name}</td>
-                                    <td>${ing.namespace}</td>
-                                    <td>${ing.hosts.join(', ')}</td>
-                                    <td>${ing.tls_enabled ? '✓' : '✗'}</td>
-                                    <td>${ing.backend_services.length}</td>
-                                    <td>${ing.status_emoji} ${ing.health_score}%</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
+                    ${ingresses.map((ing, idx) => `
+                        <div class="health-card animate-in" style="margin-bottom: 20px;">
+                            <div class="collapsible-header" onclick="toggleCollapse('ing-${idx}')">
+                                <div style="display: flex; align-items: center;">
+                                    <span id="ing-${idx}-toggle" class="collapsible-toggle collapsed">▼</span>
+                                    <h3 style="margin: 0; color: #FFB454;">🌐 ${ing.name}</h3>
+                                </div>
+                                <div>
+                                    ${ing.tls_enabled ? '<span class="badge badge-success">🔒 TLS</span>' : '<span class="badge" style="background: #5C6773; color: #BFBDB6;">No TLS</span>'}
+                                    ${ing.ingress_class ? `<span class="badge" style="background: #59C2FF; color: #0A0E14; margin-left: 8px;">📋 ${ing.ingress_class}</span>` : ''}
+                                </div>
+                            </div>
+                            <div id="ing-${idx}-content" class="collapsible-content collapsed">
+                            
+                            ${ing.hosts && ing.hosts.length > 0 ? `
+                                <div class="info-section">
+                                    <h4>🏷️ Hosts</h4>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                                        ${ing.hosts.map(host => `<span class="badge" style="background: rgba(89, 194, 255, 0.25); color: #BFBDB6;">${host}</span>`).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
+                            
+                            ${ing.rules && ing.rules.length > 0 ? `
+                                <div class="info-section">
+                                    <h4>🔀 Rules & Paths</h4>
+                                    ${ing.rules.map(rule => `
+                                        <div style="margin-bottom: 15px; padding: 12px; background: rgba(13, 16, 23, 0.7); border-radius: 8px; border-left: 3px solid #FFB454;">
+                                            <div style="font-weight: bold; color: #FFD580; margin-bottom: 10px;">Host: ${rule.host || 'All hosts'}</div>
+                                            ${rule.paths && rule.paths.length > 0 ? `
+                                                <table style="width: 100%; background: transparent;">
+                                                    <thead>
+                                                        <tr style="background: rgba(17, 21, 28, 0.6);">
+                                                            <th>Path</th>
+                                                            <th>Type</th>
+                                                            <th>Service</th>
+                                                            <th>Port</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        ${rule.paths.map(path => `
+                                                            <tr>
+                                                                <td style="font-family: monospace; color: #59C2FF;">${path.path || '/'}</td>
+                                                                <td>${path.path_type}</td>
+                                                                <td><span class="badge" style="background: #AAD94C; color: #0A0E14;">${path.service_name}</span></td>
+                                                                <td>${path.service_port}</td>
+                                                            </tr>
+                                                        `).join('')}
+                                                    </tbody>
+                                                </table>
+                                            ` : '<p style="color: #5C6773;">No paths defined</p>'}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            ` : ''}
+                            </div>
+                        </div>
+                    `).join('')}
                 `;
             } catch (error) {
-                container.innerHTML = `<p style="color: #ef4444;">Error: ${error.message}</p>`;
+                container.innerHTML = `<p style="color: #F07178;">Error: ${error.message}</p>`;
             }
         }
 
@@ -560,33 +688,185 @@
                 
                 container.innerHTML = `
                     <h2>Services (${services.length})</h2>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Namespace</th>
-                                <th>Type</th>
-                                <th>Cluster IP</th>
-                                <th>Endpoints</th>
-                                <th>Health</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${services.map(svc => `
-                                <tr>
-                                    <td>${svc.name}</td>
-                                    <td>${svc.namespace}</td>
-                                    <td>${svc.type}</td>
-                                    <td>${svc.cluster_ip || 'None'}</td>
-                                    <td>${svc.endpoint_count}</td>
-                                    <td>${svc.status_emoji} ${svc.health_score}%</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
+                    ${services.map((svc, idx) => `
+                        <div class="health-card animate-in" style="margin-bottom: 20px;">
+                            <div class="collapsible-header" onclick="toggleCollapse('svc-${idx}')">
+                                <div style="display: flex; align-items: center;">
+                                    <span id="svc-${idx}-toggle" class="collapsible-toggle collapsed">▼</span>
+                                    <h3 style="margin: 0; color: #FFB454;">🔗 ${svc.name}</h3>
+                                </div>
+                                <div>
+                                    <span class="badge" style="background: #59C2FF; color: #0A0E14;">${svc.type}</span>
+                                    <span class="badge ${svc.endpoint_count > 0 ? 'badge-success' : 'badge-danger'}" style="margin-left: 8px;">
+                                        ${svc.endpoint_count} endpoint${svc.endpoint_count !== 1 ? 's' : ''}
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            <div id="svc-${idx}-content" class="collapsible-content collapsed">
+                            
+                            <div class="info-grid" style="margin-bottom: 15px;">
+                                <div class="info-item">
+                                    <strong>Cluster IP</strong>
+                                    <div>${svc.cluster_ip || 'None'}</div>
+                                </div>
+                                <div class="info-item">
+                                    <strong>Health Score</strong>
+                                    <div>${svc.status_emoji} ${svc.health_score}%</div>
+                                </div>
+                            </div>
+                            
+                            ${svc.ports && svc.ports.length > 0 ? `
+                                <div class="info-section">
+                                    <h4>🔌 Ports & Target Ports</h4>
+                                    <table style="width: 100%; background: transparent;">
+                                        <thead>
+                                            <tr style="background: rgba(17, 21, 28, 0.6);">
+                                                <th>Name</th>
+                                                <th>Protocol</th>
+                                                <th>Port</th>
+                                                <th>Target Port</th>
+                                                ${svc.type === 'NodePort' ? '<th>Node Port</th>' : ''}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${svc.ports.map(port => `
+                                                <tr>
+                                                    <td>${port.name || '-'}</td>
+                                                    <td>${port.protocol}</td>
+                                                    <td><span class="badge" style="background: #AAD94C; color: #0A0E14;">${port.port}</span></td>
+                                                    <td><span class="badge" style="background: #59C2FF; color: #0A0E14;">${port.target_port}</span></td>
+                                                    ${svc.type === 'NodePort' ? `<td>${port.node_port || '-'}</td>` : ''}
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ` : ''}
+                            
+                            ${svc.selector && Object.keys(svc.selector).length > 0 ? `
+                                <div class="info-section">
+                                    <h4>🎯 Pod Selector (Routing)</h4>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                                        ${Object.entries(svc.selector).map(([key, value]) => 
+                                            `<span class="badge" style="background: rgba(210, 166, 255, 0.3); color: #BFBDB6;">${key}: ${value}</span>`
+                                        ).join('')}
+                                    </div>
+                                    <p style="margin-top: 10px; font-size: 0.9em; color: #5C6773;">
+                                        This service routes traffic to pods matching these labels
+                                    </p>
+                                </div>
+                            ` : '<div class="info-section"><p style="color: #FFB454;">⚠️ No selector defined</p></div>'}
+                            </div>
+                        </div>
+                    `).join('')}
                 `;
             } catch (error) {
-                container.innerHTML = `<p style="color: #ef4444;">Error: ${error.message}</p>`;
+                container.innerHTML = `<p style="color: #F07178;">Error: ${error.message}</p>`;
+            }
+        }
+
+        async function loadConfigMaps() {
+            const container = document.getElementById('configmaps');
+            container.innerHTML = '<div class="loading">Loading config maps...</div>';
+            
+            try {
+                const response = await fetch(`/api/configmaps/${currentNamespace}`);
+                const data = await response.json();
+                const configmaps = data.configmaps || [];
+                
+                if (configmaps.length === 0) {
+                    container.innerHTML = '<div class="error">No config maps found</div>';
+                    return;
+                }
+                
+                container.innerHTML = `
+                    <h2>ConfigMaps (${configmaps.length})</h2>
+                    ${configmaps.map((cm, idx) => `
+                        <div class="health-card animate-in" style="margin-bottom: 20px;">
+                            <div class="collapsible-header" onclick="toggleCollapse('cm-${idx}')">
+                                <div style="display: flex; align-items: center;">
+                                    <span id="cm-${idx}-toggle" class="collapsible-toggle collapsed">▼</span>
+                                    <h3 style="margin: 0; color: #FFB454;">⚙️ ${cm.name}</h3>
+                                </div>
+                                <span class="badge" style="background: #AAD94C; color: #0A0E14;">
+                                    ${cm.key_count} key${cm.key_count !== 1 ? 's' : ''}
+                                </span>
+                            </div>
+                            <div id="cm-${idx}-content" class="collapsible-content collapsed">
+                            
+                            ${cm.keys && cm.keys.length > 0 ? `
+                                <div class="info-section">
+                                    <h4>🔑 Data Keys</h4>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                                        ${cm.keys.map(key => `
+                                            <span class="badge" style="background: #59C2FF; color: #0A0E14;">${key}</span>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
+                            </div>
+                        </div>
+                    `).join('')}
+                `;
+            } catch (error) {
+                console.error('Error loading config maps:', error);
+                container.innerHTML = `<div class="error">Failed to load config maps: ${error.message}</div>`;
+            }
+        }
+        
+        async function loadSecrets() {
+            const container = document.getElementById('secrets');
+            container.innerHTML = '<div class="loading">Loading secrets...</div>';
+            
+            try {
+                const response = await fetch(`/api/secrets/${currentNamespace}`);
+                const data = await response.json();
+                const secrets = data.secrets || [];
+                
+                if (secrets.length === 0) {
+                    container.innerHTML = '<div class="error">No secrets found</div>';
+                    return;
+                }
+                
+                container.innerHTML = `
+                    <h2>Secrets (${secrets.length})</h2>
+                    ${secrets.map((sec, idx) => `
+                        <div class="health-card animate-in" style="margin-bottom: 20px;">
+                            <div class="collapsible-header" onclick="toggleCollapse('sec-${idx}')">
+                                <div style="display: flex; align-items: center;">
+                                    <span id="sec-${idx}-toggle" class="collapsible-toggle collapsed">▼</span>
+                                    <h3 style="margin: 0; color: #FFB454;">🔐 ${sec.name}</h3>
+                                </div>
+                                <div>
+                                    <span class="badge" style="background: #D2A6FF; color: #0A0E14;">${sec.type}</span>
+                                    <span class="badge" style="background: #AAD94C; color: #0A0E14; margin-left: 8px;">
+                                        ${sec.key_count} key${sec.key_count !== 1 ? 's' : ''}
+                                    </span>
+                                </div>
+                            </div>
+                            <div id="sec-${idx}-content" class="collapsible-content collapsed">
+                            
+                            ${sec.keys && sec.keys.length > 0 ? `
+                                <div class="info-section">
+                                    <h4>🔑 Data Keys</h4>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                                        ${sec.keys.map(key => `
+                                            <span class="badge" style="background: #FFB454; color: #0A0E14;">${key}</span>
+                                        `).join('')}
+                                    </div>
+                                    <div style="margin-top: 12px; padding: 10px; background: rgba(240, 113, 120, 0.15); border-left: 3px solid #F07178; border-radius: 4px;">
+                                        <small style="color: #fca5a5;">🔒 Secret values are hidden for security</small>
+                                    </div>
+                                </div>
+                            ` : ''}
+                            </div>
+                        </div>
+                    `).join('')}
+                `;
+            } catch (error) {
+                console.error('Error loading secrets:', error);
+                container.innerHTML = `<div class="error">Failed to load secrets: ${error.message}</div>`;
             }
         }
 
@@ -672,30 +952,87 @@
                 
                 container.innerHTML = `
                     <h2>Deployments (${deployments.length})</h2>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Namespace</th>
-                                <th>Desired</th>
-                                <th>Ready</th>
-                                <th>Available</th>
-                                <th>Health</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${deployments.map(dep => `
-                                <tr>
-                                    <td>${dep.name}</td>
-                                    <td>${dep.namespace}</td>
-                                    <td>${dep.replicas_desired}</td>
-                                    <td>${dep.replicas_ready}</td>
-                                    <td>${dep.replicas_available}</td>
-                                    <td>${dep.status_emoji} ${dep.health_score}%</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
+                    ${deployments.map((dep, idx) => `
+                        <div class="health-card animate-in" style="margin-bottom: 20px;">
+                            <div class="collapsible-header" onclick="toggleCollapse('dep-${idx}')">
+                                <div style="display: flex; align-items: center;">
+                                    <span id="dep-${idx}-toggle" class="collapsible-toggle collapsed">▼</span>
+                                    <h3 style="margin: 0; color: #FFB454;">🏗️ ${dep.name}</h3>
+                                </div>
+                                <div>
+                                    <span class="badge ${dep.replicas_ready === dep.replicas_desired ? 'badge-success' : 'badge-warning'}">
+                                        ${dep.replicas_ready}/${dep.replicas_desired} ready
+                                    </span>
+                                    <span class="badge" style="margin-left: 8px; background: ${dep.health_score >= 80 ? '#AAD94C' : dep.health_score >= 60 ? '#FFB454' : '#F07178'}; color: #0A0E14;">
+                                        ${dep.status_emoji} ${dep.health_score}%
+                                    </span>
+                                </div>
+                            </div>
+                            <div id="dep-${idx}-content" class="collapsible-content collapsed">
+                            
+                            <div class="info-grid" style="margin-bottom: 15px;">
+                                <div class="info-item">
+                                    <strong>Desired Replicas</strong>
+                                    <div>${dep.replicas_desired}</div>
+                                </div>
+                                <div class="info-item">
+                                    <strong>Available</strong>
+                                    <div>${dep.replicas_available}</div>
+                                </div>
+                            </div>
+                            
+                            ${dep.images && dep.images.length > 0 ? `
+                                <div class="info-section">
+                                    <h4>🐳 Container Images</h4>
+                                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                                        ${dep.images.map(img => {
+                                            const parts = img.split(':');
+                                            const imageName = parts[0];
+                                            const tag = parts[1] || 'latest';
+                                            return `
+                                                <div style="background: rgba(13, 16, 23, 0.7); padding: 10px; border-radius: 6px; border-left: 3px solid #FFB454;">
+                                                    <div style="font-family: monospace; color: #59C2FF; font-size: 0.9em;">${imageName}</div>
+                                                    <span class="badge" style="background: #59C2FF; color: #0A0E14; margin-top: 4px;">tag: ${tag}</span>
+                                                </div>
+                                            `;
+                                        }).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
+                            
+                            ${dep.resources && dep.resources.length > 0 ? `
+                                <div class="info-section">
+                                    <h4>📊 Resource Requests & Limits</h4>
+                                    ${dep.resources.map(res => `
+                                        <div style="margin-bottom: 12px; padding: 12px; background: rgba(13, 16, 23, 0.7); border-radius: 8px; border-left: 3px solid #D2A6FF;">
+                                            <div style="font-weight: bold; color: #FFD580; margin-bottom: 8px;">Container: ${res.name}</div>
+                                            <div class="info-grid">
+                                                ${res.requests ? `
+                                                    <div class="info-item">
+                                                        <strong>Requests</strong>
+                                                        <div>
+                                                            ${res.requests.cpu ? `CPU: ${res.requests.cpu}<br>` : ''}
+                                                            ${res.requests.memory ? `Memory: ${res.requests.memory}` : ''}
+                                                        </div>
+                                                    </div>
+                                                ` : ''}
+                                                ${res.limits ? `
+                                                    <div class="info-item">
+                                                        <strong>Limits</strong>
+                                                        <div>
+                                                            ${res.limits.cpu ? `CPU: ${res.limits.cpu}<br>` : ''}
+                                                            ${res.limits.memory ? `Memory: ${res.limits.memory}` : ''}
+                                                        </div>
+                                                    </div>
+                                                ` : ''}
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            ` : ''}
+                            </div>
+                        </div>
+                    `).join('')}
                 `;
             } catch (error) {
                 container.innerHTML = `<p style="color: #ef4444;">Error: ${error.message}</p>`;
@@ -751,7 +1088,7 @@
                 });
                 const data = await response.json();
                 
-                const color = data.success ? '#10b981' : '#ef4444';
+                const color = data.success ? '#AAD94C' : '#F07178';
                 results.innerHTML += `
                     <div style="background: #2d2d44; padding: 10px; margin: 10px 0; border-left: 4px solid ${color};">
                         ${data.status_emoji} ${data.message} (${data.latency_ms.toFixed(2)}ms)
@@ -846,7 +1183,7 @@
                                     <div class="stat-value">${data.deployment_health.healthy}</div>
                                     <div class="stat-label">🟢 Healthy</div>
                                 </div>
-                                <div class="stat" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                                <div class="stat" style="background: linear-gradient(135deg, #FFB454 0%, #E6B450 100%); color: #0A0E14;">
                                     <div class="stat-value">${data.deployment_health.degraded}</div>
                                     <div class="stat-label">🟡 Degraded</div>
                                 </div>
@@ -905,7 +1242,7 @@
                         <div class="health-card">
                             <h3>⚠️ Top Issues</h3>
                             ${data.issues.map(issue => `
-                                <div style="background: rgba(239, 68, 68, 0.1); padding: 12px; margin: 10px 0; border-radius: 8px; border-left: 4px solid #ef4444;">
+                                <div style="background: rgba(240, 113, 120, 0.15); padding: 12px; margin: 10px 0; border-radius: 8px; border-left: 4px solid #F07178;">
                                     <div style="display: flex; justify-content: space-between; align-items: center;">
                                         <span>${issue.emoji} ${issue.resource_name}</span>
                                         <span class="badge badge-danger">${issue.severity.toUpperCase()}</span>
@@ -914,7 +1251,7 @@
                                 </div>
                             `).join('')}
                         </div>
-                    ` : '<div class="health-card"><div style="text-align: center; padding: 20px;"><span style="font-size: 48px;">✓</span><p style="color: #10b981; font-size: 18px; margin-top: 10px;">No issues detected</p></div></div>'}
+                    ` : '<div class="health-card"><div style="text-align: center; padding: 20px;"><span style="font-size: 48px;">✓</span><p style="color: #AAD94C; font-size: 18px; margin-top: 10px;">No issues detected</p></div></div>'}
                 `;
             } catch (error) {
                 container.innerHTML = `<p style="color: #ef4444;">Error: ${error.message}</p>`;
@@ -938,7 +1275,7 @@
                 
                 releases.forEach(release => {
                     const hasVersion = release.version || release.helm_release;
-                    const versionBadgeColor = hasVersion ? '#10b981' : '#6b7280';
+                    const versionBadgeColor = hasVersion ? '#AAD94C' : '#5C6773';
                     
                     html += `
                         <div class="health-card" style="background: linear-gradient(135deg, rgba(45,45,68,0.9) 0%, rgba(26,26,46,0.9) 100%);">
@@ -947,7 +1284,7 @@
                                     <h3 style="color: #a78bfa; margin-bottom: 8px;">
                                         🚀 ${release.deployment_name}
                                     </h3>
-                                    ${release.app_name ? `<div style="color: #9ca3af; font-size: 0.9em; margin-bottom: 4px;">App: ${release.app_name}</div>` : ''}
+                                    ${release.app_name ? `<div style="color: #5C6773; font-size: 0.9em; margin-bottom: 4px;">App: ${release.app_name}</div>` : ''}
                                 </div>
                                 ${release.version ? `
                                     <div class="badge" style="background: ${versionBadgeColor}; font-size: 14px; padding: 8px 16px;">
@@ -991,7 +1328,7 @@
                             ` : ''}
                             
                             ${release.helm_release ? `
-                                <div class="info-section" style="margin-top: 15px; padding: 15px; background: rgba(139,92,246,0.15); border-radius: 8px; border-left: 4px solid #8b5cf6;">
+                                <div class="info-section" style="margin-top: 15px; padding: 15px; background: rgba(210,166,255,0.1); border-radius: 8px; border-left: 4px solid #D2A6FF;">
                                     <h4 style="color: #c4b5fd; margin-bottom: 12px;">⎈ Helm Release: ${release.helm_release.name}</h4>
                                     <div class="info-grid">
                                         <div class="info-item">
@@ -1030,8 +1367,8 @@
                                     ` : ''}
                                 </div>
                             ` : `
-                                <div style="margin-top: 15px; padding: 12px; background: rgba(107,114,128,0.1); border-radius: 8px; border-left: 4px solid #6b7280;">
-                                    <p style="color: #9ca3af; font-size: 0.9em; margin: 0;">
+                                <div style="margin-top: 15px; padding: 12px; background: rgba(92,103,115,0.15); border-radius: 8px; border-left: 4px solid #5C6773;">
+                                    <p style="color: #5C6773; font-size: 0.9em; margin: 0;">
                                         ℹ️ No Helm release information available (manual deployment)
                                     </p>
                                 </div>
@@ -1098,10 +1435,10 @@
                 
                 // Display performance info
                 const perfBadge = cached 
-                    ? `<span class="badge" style="background: #10b981;">📦 Cached (instant)</span>`
+                    ? `<span class="badge" style="background: #AAD94C; color: #0A0E14;">📦 Cached (instant)</span>`
                     : `<span class="badge" style="background: #6366f1;">⚡ Loaded in ${fetchTime || loadTime + 's'}</span>`;
                 
-                const modeInfo = cached ? '' : '<small style="color: #9ca3af; margin-left: 10px;">Using lightweight mode for speed</small>';
+                const modeInfo = cached ? '' : '<small style="color: #5C6773; margin-left: 10px;">Using lightweight mode for speed</small>';
                 
                 // Display grouped resources
                 let html = `
@@ -1120,13 +1457,13 @@
                     
                     html += `
                         <div style="margin-bottom: 20px;">
-                            <h3 style="color: #8b5cf6;">${icon} ${type}s (${items.length})</h3>
+                            <h3 style="color: #D2A6FF;">${icon} ${type}s (${items.length})</h3>
                             <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px;">
                     `;
                     
                     items.forEach(resource => {
-                        const healthColor = resource.health_score >= 80 ? '#10b981' : 
-                                          resource.health_score >= 60 ? '#f59e0b' : '#ef4444';
+                        const healthColor = resource.health_score >= 80 ? '#AAD94C' : 
+                                          resource.health_score >= 60 ? '#FFB454' : '#F07178';
                         
                         html += `
                             <div class="card" style="cursor: pointer; border-left: 4px solid ${healthColor};" 
@@ -1134,11 +1471,11 @@
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
                                     <div>
                                         <strong>${resource.name}</strong>
-                                        <div style="font-size: 0.9em; color: #9ca3af;">${resource.namespace}</div>
+                                        <div style="font-size: 0.9em; color: #5C6773;">${resource.namespace}</div>
                                     </div>
                                     <div style="text-align: right;">
                                         <div style="font-size: 0.9em; color: ${healthColor};">${resource.status}</div>
-                                        <div style="font-size: 0.8em; color: #9ca3af;">Health: ${resource.health_score}%</div>
+                                        <div style="font-size: 0.8em; color: #5C6773;">Health: ${resource.health_score}%</div>
                                     </div>
                                 </div>
                             </div>
@@ -1217,13 +1554,13 @@
                         relGroups[rel.relationship_type].push(rel);
                     });
                     
-                    html += '<h3 style="margin-top: 20px; color: #8b5cf6;">🔗 Relationships</h3>';
+                    html += '<h3 style="margin-top: 20px; color: #D2A6FF;">🔗 Relationships</h3>';
                     
                     Object.keys(relGroups).forEach(relType => {
                         const rels = relGroups[relType];
                         html += `
                             <div style="margin: 15px 0;">
-                                <h4 style="color: #f59e0b;">${relType} (${rels.length})</h4>
+                                <h4 style="color: #FFB454;">${relType} (${rels.length})</h4>
                                 <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px;">
                         `;
                         
@@ -1235,7 +1572,7 @@
                                     <div style="display: flex; justify-content: space-between; align-items: center;">
                                         <div>
                                             <strong>${icon} ${rel.resource_name}</strong>
-                                            <div style="font-size: 0.9em; color: #9ca3af;">${rel.resource_type}</div>
+                                            <div style="font-size: 0.9em; color: #5C6773;">${rel.resource_type}</div>
                                         </div>
                                     </div>
                                     ${rel.details ? formatRelationshipDetails(rel.details) : ''}
@@ -1246,7 +1583,7 @@
                         html += '</div></div>';
                     });
                 } else {
-                    html += '<p style="color: #9ca3af; margin-top: 20px;">No relationships found</p>';
+                    html += '<p style="color: #5C6773; margin-top: 20px;">No relationships found</p>';
                 }
                 
                 html += '</div>';
@@ -1274,9 +1611,9 @@
         }
 
         function getStatusColor(healthScore) {
-            if (healthScore >= 80) return '#10b981';
-            if (healthScore >= 60) return '#f59e0b';
-            return '#ef4444';
+            if (healthScore >= 80) return '#AAD94C';
+            if (healthScore >= 60) return '#FFB454';
+            return '#F07178';
         }
 
         function formatDetails(details) {
@@ -1327,7 +1664,7 @@
             if (details.container_statuses && Array.isArray(details.container_statuses)) {
                 html += '<div class="info-section"><h4>🔄 Container Status</h4>';
                 details.container_statuses.forEach(status => {
-                    const stateColor = status.ready ? '#10b981' : status.state_info?.state === 'waiting' ? '#f59e0b' : '#ef4444';
+                    const stateColor = status.ready ? '#AAD94C' : status.state_info?.state === 'waiting' ? '#FFB454' : '#F07178';
                     html += `
                         <div style="background: rgba(26,26,46,0.6); padding: 12px; margin: 8px 0; border-radius: 6px; border-left: 3px solid ${stateColor};">
                             <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -1350,7 +1687,7 @@
             if (details.conditions && Array.isArray(details.conditions)) {
                 html += '<div class="info-section"><h4>🏥 Conditions</h4>';
                 details.conditions.forEach(condition => {
-                    const condColor = condition.status === 'True' ? '#10b981' : condition.status === 'False' ? '#ef4444' : '#f59e0b';
+                    const condColor = condition.status === 'True' ? '#AAD94C' : condition.status === 'False' ? '#F07178' : '#FFB454';
                     html += `
                         <div style="background: rgba(26,26,46,0.6); padding: 10px; margin: 6px 0; border-radius: 6px; border-left: 3px solid ${condColor};">
                             <div style="display: flex; justify-content: space-between;">
