@@ -29,8 +29,9 @@ type Cache struct {
 }
 
 type CacheEntry struct {
-	Data      interface{}
-	ExpiresAt time.Time
+	Data            interface{}
+	ResourceVersion string
+	ExpiresAt       time.Time
 }
 
 func New(client *k8s.Client) *App {
@@ -58,13 +59,29 @@ func (c *Cache) Get(key string) (interface{}, bool) {
 }
 
 func (c *Cache) Set(key string, data interface{}, ttl time.Duration) {
+	c.SetWithVersion(key, data, "", ttl)
+}
+
+func (c *Cache) SetWithVersion(key string, data interface{}, resourceVersion string, ttl time.Duration) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	c.data[key] = CacheEntry{
-		Data:      data,
-		ExpiresAt: time.Now().Add(ttl),
+		Data:            data,
+		ResourceVersion: resourceVersion,
+		ExpiresAt:       time.Now().Add(ttl),
 	}
+}
+
+func (c *Cache) GetResourceVersion(key string) (string, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	entry, exists := c.data[key]
+	if !exists || time.Now().After(entry.ExpiresAt) {
+		return "", false
+	}
+	return entry.ResourceVersion, true
 }
 
 func (c *Cache) Clear() int {

@@ -17,6 +17,7 @@ func SetupRoutes(application *app.App) *mux.Router {
 
 	// API routes
 	r.HandleFunc("/api/cluster", getClusterInfo(application)).Methods("GET")
+	r.HandleFunc("/api/pvpvc/{namespace}", getPVPVC(application)).Methods("GET")
 	r.HandleFunc("/api/resources/{namespace}", getAllResources(application)).Methods("GET")
 	r.HandleFunc("/api/resource/{type}/{namespace}/{name}", getResourceDetails(application)).Methods("GET")
 	r.HandleFunc("/api/ingresses/{namespace}", getIngresses(application)).Methods("GET")

@@ -59,20 +59,32 @@ func getAllResources(application *app.App) http.HandlerFunc {
 		lightweight := r.URL.Query().Get("lightweight") == "true"
 
 		cacheKey := fmt.Sprintf("resources:%s:%s:%v", namespace, resourceType, lightweight)
+		ctx := r.Context()
 
+		// Check if we have cached version
+		cachedVersion, hasCachedVersion := application.Cache.GetResourceVersion(cacheKey)
+
+		// Quick ResourceVersion check to see if anything changed
+		if hasCachedVersion && cachedVersion != "" {
+			// Do a lightweight List with Limit=1 to just get the ResourceVersion
+			quickCheck, _ := application.K8sClient.Clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{Limit: 1})
+			if quickCheck != nil && quickCheck.ResourceVersion == cachedVersion {
+				// Nothing changed, return cached data
+				if cached, ok := application.Cache.Get(cacheKey); ok {
+					json.NewEncoder(w).Encode(cached)
+					return
+				}
+			}
+		}
+
+		// Check full cache (in case ResourceVersion check was skipped)
 		if cached, ok := application.Cache.Get(cacheKey); ok {
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"resources":  cached,
-				"total":      len(cached.([]map[string]interface{})),
-				"cached":     true,
-				"fetch_time": "0s",
-			})
+			json.NewEncoder(w).Encode(cached)
 			return
 		}
 
 		startTime := time.Now()
 		resources := []map[string]interface{}{}
-		ctx := r.Context()
 
 		// Fetch resources concurrently for better performance
 		var mu sync.Mutex
@@ -166,17 +178,136 @@ func getAllResources(application *app.App) http.HandlerFunc {
 			}()
 		}
 
+		// Fetch PersistentVolumes (cluster-scoped, regardless of namespace)
+		if resourceType == "" || resourceType == "all" || resourceType == "PersistentVolume" {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				pvs, err := application.K8sClient.Clientset.CoreV1().PersistentVolumes().List(ctx, metav1.ListOptions{})
+				if err == nil {
+					mu.Lock()
+					for _, pv := range pvs.Items {
+						details := map[string]interface{}{}
+						if !lightweight {
+							details["spec"] = map[string]interface{}{
+								"storageClassName": pv.Spec.StorageClassName,
+								"capacity": map[string]interface{}{
+									"storage": func() string {
+										if storage, ok := pv.Spec.Capacity["storage"]; ok {
+											return storage.String()
+										}
+										return ""
+									}(),
+								},
+								"claimRef": func() map[string]interface{} {
+									if pv.Spec.ClaimRef != nil {
+										return map[string]interface{}{
+											"name":      pv.Spec.ClaimRef.Name,
+											"namespace": pv.Spec.ClaimRef.Namespace,
+										}
+									}
+									return nil
+								}(),
+							}
+							details["status"] = map[string]interface{}{
+								"phase": string(pv.Status.Phase),
+							}
+						}
+						resources = append(resources, map[string]interface{}{
+							"name":          pv.Name,
+							"namespace":     "", // PVs are cluster-scoped
+							"resource_type": "PersistentVolume",
+							"kind":          "PersistentVolume",
+							"status":        string(pv.Status.Phase),
+							"health_score":  100,
+							"created_at":    pv.CreationTimestamp.Format(time.RFC3339),
+							"details":       details,
+						})
+					}
+					mu.Unlock()
+				}
+			}()
+		}
+
+		// Fetch PersistentVolumeClaims (namespace-scoped)
+		if resourceType == "" || resourceType == "all" || resourceType == "PersistentVolumeClaim" {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				pvcs, err := application.K8sClient.Clientset.CoreV1().PersistentVolumeClaims(namespace).List(ctx, metav1.ListOptions{})
+				if err == nil {
+					mu.Lock()
+					for _, pvc := range pvcs.Items {
+						details := map[string]interface{}{}
+						if !lightweight {
+							details["spec"] = map[string]interface{}{
+								"volumeName": pvc.Spec.VolumeName,
+								"storageClassName": func() string {
+									if pvc.Spec.StorageClassName != nil {
+										return *pvc.Spec.StorageClassName
+									}
+									return ""
+								}(),
+								"resources": map[string]interface{}{
+									"requests": map[string]interface{}{
+										"storage": func() string {
+											if storage, ok := pvc.Spec.Resources.Requests["storage"]; ok {
+												return storage.String()
+											}
+											return ""
+										}(),
+									},
+								},
+							}
+							details["status"] = map[string]interface{}{
+								"phase": string(pvc.Status.Phase),
+								"capacity": map[string]interface{}{
+									"storage": func() string {
+										if storage, ok := pvc.Status.Capacity["storage"]; ok {
+											return storage.String()
+										}
+										return ""
+									}(),
+								},
+							}
+						}
+						resources = append(resources, map[string]interface{}{
+							"name":          pvc.Name,
+							"namespace":     pvc.Namespace,
+							"resource_type": "PersistentVolumeClaim",
+							"kind":          "PersistentVolumeClaim",
+							"status":        string(pvc.Status.Phase),
+							"health_score":  100,
+							"created_at":    pvc.CreationTimestamp.Format(time.RFC3339),
+							"details":       details,
+						})
+					}
+					mu.Unlock()
+				}
+			}()
+		}
+
 		wg.Wait()
 
-		fetchTime := time.Since(startTime)
-		application.Cache.Set(cacheKey, resources, 30*time.Second)
+		// Get current ResourceVersion from one of the lists
+		currentVersion := ""
+		if resourceType == "" || resourceType == "all" || resourceType == "Pod" {
+			if podsList, err := application.K8sClient.Clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{Limit: 1}); err == nil {
+				currentVersion = podsList.ResourceVersion
+			}
+		}
 
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		fetchTime := time.Since(startTime)
+		response := map[string]interface{}{
 			"resources":  resources,
 			"total":      len(resources),
 			"cached":     false,
 			"fetch_time": fmt.Sprintf("%.2fs", fetchTime.Seconds()),
-		})
+			"version":    currentVersion,
+		}
+		application.Cache.SetWithVersion(cacheKey, response, currentVersion, 30*time.Second)
+
+		json.NewEncoder(w).Encode(response)
 	}
 }
 
@@ -307,6 +438,19 @@ func getServices(application *app.App) http.HandlerFunc {
 
 		// Check cache first
 		cacheKey := fmt.Sprintf("services:%s", namespace)
+
+		// ResourceVersion check
+		cachedVersion, hasCachedVersion := application.Cache.GetResourceVersion(cacheKey)
+		if hasCachedVersion && cachedVersion != "" {
+			quickCheck, _ := application.K8sClient.Clientset.CoreV1().Services(namespace).List(r.Context(), metav1.ListOptions{Limit: 1})
+			if quickCheck != nil && quickCheck.ResourceVersion == cachedVersion {
+				if cached, ok := application.Cache.Get(cacheKey); ok {
+					json.NewEncoder(w).Encode(cached)
+					return
+				}
+			}
+		}
+
 		if cached, ok := application.Cache.Get(cacheKey); ok {
 			json.NewEncoder(w).Encode(cached)
 			return
@@ -347,8 +491,16 @@ func getServices(application *app.App) http.HandlerFunc {
 			})
 		}
 
-		// Cache for 30 seconds
-		application.Cache.Set(cacheKey, result, 30*time.Second)
+		// Get ResourceVersion for cache
+		currentVersion := ""
+		if len(services) > 0 {
+			if svcList, err := application.K8sClient.Clientset.CoreV1().Services(namespace).List(r.Context(), metav1.ListOptions{Limit: 1}); err == nil {
+				currentVersion = svcList.ResourceVersion
+			}
+		}
+
+		// Cache for 30 seconds with version
+		application.Cache.SetWithVersion(cacheKey, result, currentVersion, 30*time.Second)
 
 		json.NewEncoder(w).Encode(result)
 	}
@@ -721,12 +873,17 @@ func testNetwork(application *app.App) http.HandlerFunc {
 
 		var result map[string]interface{}
 
-		if req.TestType == "dns" {
+		switch req.TestType {
+		case "dns":
 			result = network.TestDNS(req.Hostname)
-		} else if req.TestType == "tcp" {
+		case "tcp":
 			result = network.TestTCP(req.Hostname, req.Port)
-		} else {
-			http.Error(w, "Invalid test type", http.StatusBadRequest)
+		case "http":
+			result = network.TestHTTP(req.Hostname, false)
+		case "https":
+			result = network.TestHTTP(req.Hostname, true)
+		default:
+			http.Error(w, "Invalid test type. Use: dns, tcp, http, or https", http.StatusBadRequest)
 			return
 		}
 
@@ -761,6 +918,19 @@ func getConfigMaps(application *app.App) http.HandlerFunc {
 
 		// Check cache
 		cacheKey := fmt.Sprintf("configmaps:%s", namespace)
+
+		// ResourceVersion check
+		cachedVersion, hasCachedVersion := application.Cache.GetResourceVersion(cacheKey)
+		if hasCachedVersion && cachedVersion != "" {
+			quickCheck, _ := application.K8sClient.Clientset.CoreV1().ConfigMaps(namespace).List(r.Context(), metav1.ListOptions{Limit: 1})
+			if quickCheck != nil && quickCheck.ResourceVersion == cachedVersion {
+				if cached, ok := application.Cache.Get(cacheKey); ok {
+					json.NewEncoder(w).Encode(cached)
+					return
+				}
+			}
+		}
+
 		if cached, ok := application.Cache.Get(cacheKey); ok {
 			json.NewEncoder(w).Encode(cached)
 			return
@@ -791,9 +961,15 @@ func getConfigMaps(application *app.App) http.HandlerFunc {
 			})
 		}
 
-		// Cache the result for 30 seconds
+		// Get ResourceVersion
+		currentVersion := ""
+		if cmList, err := application.K8sClient.Clientset.CoreV1().ConfigMaps(namespace).List(r.Context(), metav1.ListOptions{Limit: 1}); err == nil {
+			currentVersion = cmList.ResourceVersion
+		}
+
+		// Cache the result for 30 seconds with version
 		response := map[string]interface{}{"configmaps": result}
-		application.Cache.Set(cacheKey, response, 30*time.Second)
+		application.Cache.SetWithVersion(cacheKey, response, currentVersion, 30*time.Second)
 
 		json.NewEncoder(w).Encode(response)
 	}
@@ -807,6 +983,19 @@ func getSecrets(application *app.App) http.HandlerFunc {
 
 		// Check cache
 		cacheKey := fmt.Sprintf("secrets:%s", namespace)
+
+		// ResourceVersion check
+		cachedVersion, hasCachedVersion := application.Cache.GetResourceVersion(cacheKey)
+		if hasCachedVersion && cachedVersion != "" {
+			quickCheck, _ := application.K8sClient.Clientset.CoreV1().Secrets(namespace).List(r.Context(), metav1.ListOptions{Limit: 1})
+			if quickCheck != nil && quickCheck.ResourceVersion == cachedVersion {
+				if cached, ok := application.Cache.Get(cacheKey); ok {
+					json.NewEncoder(w).Encode(cached)
+					return
+				}
+			}
+		}
+
 		if cached, ok := application.Cache.Get(cacheKey); ok {
 			json.NewEncoder(w).Encode(cached)
 			return
@@ -835,9 +1024,313 @@ func getSecrets(application *app.App) http.HandlerFunc {
 			})
 		}
 
-		// Cache the result for 30 seconds
+		// Get ResourceVersion
+		currentVersion := ""
+		if secretList, err := application.K8sClient.Clientset.CoreV1().Secrets(namespace).List(r.Context(), metav1.ListOptions{Limit: 1}); err == nil {
+			currentVersion = secretList.ResourceVersion
+		}
+
+		// Cache the result for 30 seconds with version
 		response := map[string]interface{}{"secrets": result}
-		application.Cache.Set(cacheKey, response, 30*time.Second)
+		application.Cache.SetWithVersion(cacheKey, response, currentVersion, 30*time.Second)
+
+		json.NewEncoder(w).Encode(response)
+	}
+}
+
+func getPVPVC(application *app.App) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		vars := mux.Vars(r)
+		namespace := vars["namespace"]
+		ctx := r.Context()
+
+		// Check cache
+		cacheKey := fmt.Sprintf("pvpvc:%s", namespace)
+
+		// ResourceVersion check
+		cachedVersion, hasCachedVersion := application.Cache.GetResourceVersion(cacheKey)
+		if hasCachedVersion && cachedVersion != "" {
+			quickCheck, _ := application.K8sClient.Clientset.CoreV1().PersistentVolumeClaims(namespace).List(ctx, metav1.ListOptions{Limit: 1})
+			if quickCheck != nil && quickCheck.ResourceVersion == cachedVersion {
+				if cached, ok := application.Cache.Get(cacheKey); ok {
+					json.NewEncoder(w).Encode(cached)
+					return
+				}
+			}
+		}
+
+		if cached, ok := application.Cache.Get(cacheKey); ok {
+			json.NewEncoder(w).Encode(cached)
+			return
+		}
+
+		// Fetch all PVs (cluster-wide)
+		pvList, err := application.K8sClient.Clientset.CoreV1().PersistentVolumes().List(ctx, metav1.ListOptions{})
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to fetch PVs: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		// Fetch all PVCs in the namespace
+		pvcList, err := application.K8sClient.Clientset.CoreV1().PersistentVolumeClaims(namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to fetch PVCs: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		// Create a map of PVs for quick lookup
+		pvMap := make(map[string]interface{})
+		for _, pv := range pvList.Items {
+			accessModes := []string{}
+			for _, mode := range pv.Spec.AccessModes {
+				accessModes = append(accessModes, string(mode))
+			}
+
+			reclaimPolicy := ""
+			if pv.Spec.PersistentVolumeReclaimPolicy != "" {
+				reclaimPolicy = string(pv.Spec.PersistentVolumeReclaimPolicy)
+			}
+
+			// Determine volume type
+			volumeType := "Unknown"
+			volumeDetails := map[string]interface{}{}
+			if pv.Spec.HostPath != nil {
+				volumeType = "HostPath"
+				volumeDetails["path"] = pv.Spec.HostPath.Path
+				if pv.Spec.HostPath.Type != nil {
+					volumeDetails["type"] = string(*pv.Spec.HostPath.Type)
+				}
+			} else if pv.Spec.NFS != nil {
+				volumeType = "NFS"
+				volumeDetails["server"] = pv.Spec.NFS.Server
+				volumeDetails["path"] = pv.Spec.NFS.Path
+				volumeDetails["readOnly"] = pv.Spec.NFS.ReadOnly
+			} else if pv.Spec.CSI != nil {
+				volumeType = "CSI"
+				volumeDetails["driver"] = pv.Spec.CSI.Driver
+				volumeDetails["volumeHandle"] = pv.Spec.CSI.VolumeHandle
+				if pv.Spec.CSI.FSType != "" {
+					volumeDetails["fsType"] = pv.Spec.CSI.FSType
+				}
+			} else if pv.Spec.AWSElasticBlockStore != nil {
+				volumeType = "AWS EBS"
+				volumeDetails["volumeID"] = pv.Spec.AWSElasticBlockStore.VolumeID
+				volumeDetails["fsType"] = pv.Spec.AWSElasticBlockStore.FSType
+			} else if pv.Spec.GCEPersistentDisk != nil {
+				volumeType = "GCE PD"
+				volumeDetails["pdName"] = pv.Spec.GCEPersistentDisk.PDName
+				volumeDetails["fsType"] = pv.Spec.GCEPersistentDisk.FSType
+			} else if pv.Spec.AzureDisk != nil {
+				volumeType = "Azure Disk"
+				volumeDetails["diskName"] = pv.Spec.AzureDisk.DiskName
+				volumeDetails["diskURI"] = pv.Spec.AzureDisk.DataDiskURI
+			} else if pv.Spec.AzureFile != nil {
+				volumeType = "Azure File"
+				volumeDetails["shareName"] = pv.Spec.AzureFile.ShareName
+				volumeDetails["secretName"] = pv.Spec.AzureFile.SecretName
+			} else if pv.Spec.ISCSI != nil {
+				volumeType = "iSCSI"
+				volumeDetails["targetPortal"] = pv.Spec.ISCSI.TargetPortal
+				volumeDetails["iqn"] = pv.Spec.ISCSI.IQN
+				volumeDetails["lun"] = pv.Spec.ISCSI.Lun
+			} else if pv.Spec.Glusterfs != nil {
+				volumeType = "Glusterfs"
+				volumeDetails["endpoints"] = pv.Spec.Glusterfs.EndpointsName
+				volumeDetails["path"] = pv.Spec.Glusterfs.Path
+			} else if pv.Spec.CephFS != nil {
+				volumeType = "CephFS"
+				volumeDetails["monitors"] = pv.Spec.CephFS.Monitors
+			} else if pv.Spec.FC != nil {
+				volumeType = "Fibre Channel"
+				volumeDetails["targetWWNs"] = pv.Spec.FC.TargetWWNs
+			} else if pv.Spec.Local != nil {
+				volumeType = "Local"
+				volumeDetails["path"] = pv.Spec.Local.Path
+			}
+
+			// Volume mode
+			volumeMode := "Filesystem"
+			if pv.Spec.VolumeMode != nil {
+				volumeMode = string(*pv.Spec.VolumeMode)
+			}
+
+			// Node affinity
+			nodeAffinity := ""
+			if pv.Spec.NodeAffinity != nil && pv.Spec.NodeAffinity.Required != nil {
+				if len(pv.Spec.NodeAffinity.Required.NodeSelectorTerms) > 0 {
+					nodeAffinity = "Required"
+				}
+			}
+
+			pvInfo := map[string]interface{}{
+				"name":   pv.Name,
+				"status": string(pv.Status.Phase),
+				"capacity": func() string {
+					if storage, ok := pv.Spec.Capacity["storage"]; ok {
+						return storage.String()
+					}
+					return "Unknown"
+				}(),
+				"storage_class":  pv.Spec.StorageClassName,
+				"access_modes":   accessModes,
+				"reclaim_policy": reclaimPolicy,
+				"volume_type":    volumeType,
+				"volume_mode":    volumeMode,
+				"volume_details": volumeDetails,
+				"node_affinity":  nodeAffinity,
+				"claim_ref":      nil,
+				"created_at":     pv.CreationTimestamp.Format(time.RFC3339),
+				"age_days":       int(time.Since(pv.CreationTimestamp.Time).Hours() / 24),
+			}
+
+			if pv.Spec.ClaimRef != nil {
+				pvInfo["claim_ref"] = map[string]interface{}{
+					"name":      pv.Spec.ClaimRef.Name,
+					"namespace": pv.Spec.ClaimRef.Namespace,
+				}
+			}
+
+			pvMap[pv.Name] = pvInfo
+		}
+
+		// Build PVC information with associated PV details
+		pvcData := []map[string]interface{}{}
+		for _, pvc := range pvcList.Items {
+			accessModes := []string{}
+			for _, mode := range pvc.Spec.AccessModes {
+				accessModes = append(accessModes, string(mode))
+			}
+
+			storageClass := ""
+			if pvc.Spec.StorageClassName != nil {
+				storageClass = *pvc.Spec.StorageClassName
+			}
+
+			requestedStorage := ""
+			if storage, ok := pvc.Spec.Resources.Requests["storage"]; ok {
+				requestedStorage = storage.String()
+			}
+
+			actualStorage := ""
+			if storage, ok := pvc.Status.Capacity["storage"]; ok {
+				actualStorage = storage.String()
+			}
+
+			// Find pods using this PVC with detailed information
+			pods, _ := application.K8sClient.Clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
+			usingPods := []string{}
+			podDetails := []map[string]interface{}{}
+			for _, pod := range pods.Items {
+				for _, vol := range pod.Spec.Volumes {
+					if vol.PersistentVolumeClaim != nil && vol.PersistentVolumeClaim.ClaimName == pvc.Name {
+						usingPods = append(usingPods, pod.Name)
+
+						// Calculate restart count
+						restartCount := 0
+						for _, cs := range pod.Status.ContainerStatuses {
+							restartCount += int(cs.RestartCount)
+						}
+
+						// Determine pod status
+						podStatus := string(pod.Status.Phase)
+						if pod.DeletionTimestamp != nil {
+							podStatus = "Terminating"
+						}
+
+						podDetails = append(podDetails, map[string]interface{}{
+							"name":          pod.Name,
+							"status":        podStatus,
+							"node":          pod.Spec.NodeName,
+							"restart_count": restartCount,
+							"age_days":      int(time.Since(pod.CreationTimestamp.Time).Hours() / 24),
+							"created_at":    pod.CreationTimestamp.Format(time.RFC3339),
+						})
+						break
+					}
+				}
+			}
+
+			pvcInfo := map[string]interface{}{
+				"name":              pvc.Name,
+				"namespace":         pvc.Namespace,
+				"status":            string(pvc.Status.Phase),
+				"volume_name":       pvc.Spec.VolumeName,
+				"storage_class":     storageClass,
+				"access_modes":      accessModes,
+				"requested_storage": requestedStorage,
+				"actual_storage":    actualStorage,
+				"created_at":        pvc.CreationTimestamp.Format(time.RFC3339),
+				"age_days":          int(time.Since(pvc.CreationTimestamp.Time).Hours() / 24),
+				"using_pods":        usingPods,
+				"pod_count":         len(usingPods),
+				"pod_details":       podDetails,
+				"pv_details":        nil,
+			}
+
+			// Add associated PV details if bound
+			if pvc.Spec.VolumeName != "" {
+				if pvInfo, ok := pvMap[pvc.Spec.VolumeName]; ok {
+					pvcInfo["pv_details"] = pvInfo
+				}
+			}
+
+			pvcData = append(pvcData, pvcInfo)
+		}
+
+		// Find unbound/available PVs that could be bound to this namespace
+		// Only show: Available PVs, or Released PVs that were in this namespace
+		unboundPVs := []map[string]interface{}{}
+		for _, pv := range pvList.Items {
+			// Only include truly available PVs or Released PVs from this namespace
+			if pv.Status.Phase == "Available" {
+				if pvInfo, ok := pvMap[pv.Name]; ok {
+					unboundPVs = append(unboundPVs, pvInfo.(map[string]interface{}))
+				}
+			} else if pv.Status.Phase == "Released" && pv.Spec.ClaimRef != nil && pv.Spec.ClaimRef.Namespace == namespace {
+				if pvInfo, ok := pvMap[pv.Name]; ok {
+					unboundPVs = append(unboundPVs, pvInfo.(map[string]interface{}))
+				}
+			}
+		}
+
+		// Storage summary
+		summary := map[string]interface{}{
+			"total_pvcs":          len(pvcList.Items),
+			"total_pvs":           len(pvList.Items),
+			"unbound_pvs":         len(unboundPVs),
+			"bound_pvcs":          0,
+			"pending_pvcs":        0,
+			"lost_pvcs":           0,
+			"total_capacity":      "0Gi",
+			"total_used_capacity": "0Gi",
+		}
+
+		for _, pvc := range pvcList.Items {
+			switch pvc.Status.Phase {
+			case "Bound":
+				summary["bound_pvcs"] = summary["bound_pvcs"].(int) + 1
+			case "Pending":
+				summary["pending_pvcs"] = summary["pending_pvcs"].(int) + 1
+			case "Lost":
+				summary["lost_pvcs"] = summary["lost_pvcs"].(int) + 1
+			}
+		}
+
+		response := map[string]interface{}{
+			"summary":     summary,
+			"pvcs":        pvcData,
+			"unbound_pvs": unboundPVs,
+		}
+
+		// Get ResourceVersion
+		currentVersion := ""
+		if len(pvcList.Items) > 0 {
+			currentVersion = pvcList.ResourceVersion
+		}
+
+		// Cache for 30 seconds with version
+		application.Cache.SetWithVersion(cacheKey, response, currentVersion, 30*time.Second)
 
 		json.NewEncoder(w).Encode(response)
 	}

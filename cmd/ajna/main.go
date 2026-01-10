@@ -22,8 +22,9 @@ func main() {
 	// Initialize application with cache
 	application := app.New(client)
 
-	// Start background cache cleanup (every 5 minutes)
 	ctx := context.Background()
+
+	// Start background cache cleanup (every 5 minutes)
 	application.Cache.StartCleanupRoutine(ctx, 5*time.Minute)
 
 	// Setup HTTP routes
@@ -35,7 +36,18 @@ func main() {
 	}
 
 	log.Printf("🚀 Ajna server starting on port %s", port)
-	if err := http.ListenAndServe(":"+port, router); err != nil {
+
+	// Configure HTTP server with timeouts for production use
+	server := &http.Server{
+		Addr:           ":" + port,
+		Handler:        router,
+		ReadTimeout:    15 * time.Second,  // Max time to read request
+		WriteTimeout:   15 * time.Second,  // Max time to write response
+		IdleTimeout:    120 * time.Second, // Max time for keep-alive
+		MaxHeaderBytes: 1 << 20,           // 1 MB
+	}
+
+	if err := server.ListenAndServe(); err != nil {
 		log.Fatal(err)
 	}
 }

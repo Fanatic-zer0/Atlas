@@ -249,12 +249,104 @@ func buildIngressDetails(ing *networkingv1.Ingress, application *app.App, ctx co
 func buildPodRelationships(pod *corev1.Pod, application *app.App, ctx context.Context) []map[string]interface{} {
 	relationships := []map[string]interface{}{}
 
+	// Owner references (Deployment, ReplicaSet, etc.)
 	for _, owner := range pod.OwnerReferences {
 		relationships = append(relationships, map[string]interface{}{
 			"relationship_type": "Owned By",
 			"resource_type":     owner.Kind,
 			"resource_name":     owner.Name,
+			"icon":              "👤",
 		})
+	}
+
+	// PersistentVolumeClaims
+	for _, vol := range pod.Spec.Volumes {
+		if vol.PersistentVolumeClaim != nil {
+			relationships = append(relationships, map[string]interface{}{
+				"relationship_type": "Uses PVC",
+				"resource_type":     "PersistentVolumeClaim",
+				"resource_name":     vol.PersistentVolumeClaim.ClaimName,
+				"mount_name":        vol.Name,
+				"icon":              "💾",
+			})
+		}
+	}
+
+	// ConfigMaps (from volumes)
+	for _, vol := range pod.Spec.Volumes {
+		if vol.ConfigMap != nil {
+			relationships = append(relationships, map[string]interface{}{
+				"relationship_type": "Mounts ConfigMap",
+				"resource_type":     "ConfigMap",
+				"resource_name":     vol.ConfigMap.Name,
+				"mount_name":        vol.Name,
+				"icon":              "⚙️",
+			})
+		}
+	}
+
+	// Secrets (from volumes)
+	for _, vol := range pod.Spec.Volumes {
+		if vol.Secret != nil {
+			relationships = append(relationships, map[string]interface{}{
+				"relationship_type": "Mounts Secret",
+				"resource_type":     "Secret",
+				"resource_name":     vol.Secret.SecretName,
+				"mount_name":        vol.Name,
+				"icon":              "🔐",
+			})
+		}
+	}
+
+	// ConfigMaps and Secrets from envFrom
+	for _, container := range pod.Spec.Containers {
+		for _, envFrom := range container.EnvFrom {
+			if envFrom.ConfigMapRef != nil {
+				relationships = append(relationships, map[string]interface{}{
+					"relationship_type": "Uses ConfigMap (Env)",
+					"resource_type":     "ConfigMap",
+					"resource_name":     envFrom.ConfigMapRef.Name,
+					"container":         container.Name,
+					"icon":              "⚙️",
+				})
+			}
+			if envFrom.SecretRef != nil {
+				relationships = append(relationships, map[string]interface{}{
+					"relationship_type": "Uses Secret (Env)",
+					"resource_type":     "Secret",
+					"resource_name":     envFrom.SecretRef.Name,
+					"container":         container.Name,
+					"icon":              "🔐",
+				})
+			}
+		}
+	}
+
+	// ServiceAccount
+	if pod.Spec.ServiceAccountName != "" && pod.Spec.ServiceAccountName != "default" {
+		relationships = append(relationships, map[string]interface{}{
+			"relationship_type": "Uses ServiceAccount",
+			"resource_type":     "ServiceAccount",
+			"resource_name":     pod.Spec.ServiceAccountName,
+			"icon":              "🎫",
+		})
+	}
+
+	// Services that target this pod
+	services, _ := application.K8sClient.Clientset.CoreV1().Services(pod.Namespace).List(ctx, metav1.ListOptions{})
+	for _, svc := range services.Items {
+		if svc.Spec.Selector != nil {
+			selector := labels.Set(svc.Spec.Selector).AsSelector()
+			if selector.Matches(labels.Set(pod.Labels)) {
+				relationships = append(relationships, map[string]interface{}{
+					"relationship_type": "Exposed By Service",
+					"resource_type":     "Service",
+					"resource_name":     svc.Name,
+					"cluster_ip":        svc.Spec.ClusterIP,
+					"icon":              "🌐",
+				})
+			}
+		}
 	}
 
 	return relationships
@@ -263,18 +355,69 @@ func buildPodRelationships(pod *corev1.Pod, application *app.App, ctx context.Co
 func buildDeploymentRelationships(dep *appsv1.Deployment, application *app.App, ctx context.Context) []map[string]interface{} {
 	relationships := []map[string]interface{}{}
 
+	// Pods managed by this deployment
 	pods, _ := application.K8sClient.Clientset.CoreV1().Pods(dep.Namespace).List(ctx, metav1.ListOptions{
 		LabelSelector: metav1.FormatLabelSelector(dep.Spec.Selector),
 	})
 	for _, pod := range pods.Items {
 		relationships = append(relationships, map[string]interface{}{
-			"relationship_type": "Manages",
+			"relationship_type": "Manages Pod",
 			"resource_type":     "Pod",
 			"resource_name":     pod.Name,
+			"icon":              "📦",
 			"details": map[string]interface{}{
 				"status": string(pod.Status.Phase),
+				"node":   pod.Spec.NodeName,
 			},
 		})
+	}
+
+	// Services that expose this deployment
+	services, _ := application.K8sClient.Clientset.CoreV1().Services(dep.Namespace).List(ctx, metav1.ListOptions{})
+	for _, svc := range services.Items {
+		if svc.Spec.Selector != nil {
+			svcSelector := labels.Set(svc.Spec.Selector).AsSelector()
+			if svcSelector.Matches(labels.Set(dep.Spec.Template.Labels)) {
+				relationships = append(relationships, map[string]interface{}{
+					"relationship_type": "Exposed By Service",
+					"resource_type":     "Service",
+					"resource_name":     svc.Name,
+					"icon":              "🌐",
+					"details": map[string]interface{}{
+						"cluster_ip": svc.Spec.ClusterIP,
+						"type":       string(svc.Spec.Type),
+					},
+				})
+			}
+		}
+	}
+
+	// ConfigMaps and Secrets used by the deployment template
+	for _, vol := range dep.Spec.Template.Spec.Volumes {
+		if vol.ConfigMap != nil {
+			relationships = append(relationships, map[string]interface{}{
+				"relationship_type": "Uses ConfigMap",
+				"resource_type":     "ConfigMap",
+				"resource_name":     vol.ConfigMap.Name,
+				"icon":              "⚙️",
+			})
+		}
+		if vol.Secret != nil {
+			relationships = append(relationships, map[string]interface{}{
+				"relationship_type": "Uses Secret",
+				"resource_type":     "Secret",
+				"resource_name":     vol.Secret.SecretName,
+				"icon":              "🔐",
+			})
+		}
+		if vol.PersistentVolumeClaim != nil {
+			relationships = append(relationships, map[string]interface{}{
+				"relationship_type": "Uses PVC",
+				"resource_type":     "PersistentVolumeClaim",
+				"resource_name":     vol.PersistentVolumeClaim.ClaimName,
+				"icon":              "💾",
+			})
+		}
 	}
 
 	return relationships
@@ -283,6 +426,7 @@ func buildDeploymentRelationships(dep *appsv1.Deployment, application *app.App, 
 func buildServiceRelationships(svc *corev1.Service, application *app.App, ctx context.Context) []map[string]interface{} {
 	relationships := []map[string]interface{}{}
 
+	// Pods targeted by this service
 	if svc.Spec.Selector != nil {
 		selector := labels.Set(svc.Spec.Selector).AsSelector()
 		pods, _ := application.K8sClient.Clientset.CoreV1().Pods(svc.Namespace).List(ctx, metav1.ListOptions{
@@ -290,10 +434,40 @@ func buildServiceRelationships(svc *corev1.Service, application *app.App, ctx co
 		})
 		for _, pod := range pods.Items {
 			relationships = append(relationships, map[string]interface{}{
-				"relationship_type": "Routes To",
+				"relationship_type": "Routes To Pod",
 				"resource_type":     "Pod",
 				"resource_name":     pod.Name,
+				"icon":              "📦",
+				"details": map[string]interface{}{
+					"status": string(pod.Status.Phase),
+					"pod_ip": pod.Status.PodIP,
+					"node":   pod.Spec.NodeName,
+				},
 			})
+		}
+	}
+
+	// Ingresses that route to this service
+	ingresses, _ := application.K8sClient.Clientset.NetworkingV1().Ingresses(svc.Namespace).List(ctx, metav1.ListOptions{})
+	for _, ing := range ingresses.Items {
+		for _, rule := range ing.Spec.Rules {
+			if rule.HTTP != nil {
+				for _, path := range rule.HTTP.Paths {
+					if path.Backend.Service != nil && path.Backend.Service.Name == svc.Name {
+						relationships = append(relationships, map[string]interface{}{
+							"relationship_type": "Exposed By Ingress",
+							"resource_type":     "Ingress",
+							"resource_name":     ing.Name,
+							"icon":              "🌍",
+							"details": map[string]interface{}{
+								"host": rule.Host,
+								"path": path.Path,
+							},
+						})
+						break
+					}
+				}
+			}
 		}
 	}
 
@@ -306,11 +480,26 @@ func buildIngressRelationships(ing *networkingv1.Ingress, application *app.App, 
 	for _, rule := range ing.Spec.Rules {
 		if rule.HTTP != nil {
 			for _, path := range rule.HTTP.Paths {
-				relationships = append(relationships, map[string]interface{}{
-					"relationship_type": "Routes To",
-					"resource_type":     "Service",
-					"resource_name":     path.Backend.Service.Name,
-				})
+				if path.Backend.Service != nil {
+					svc, _ := application.K8sClient.Clientset.CoreV1().Services(ing.Namespace).Get(ctx, path.Backend.Service.Name, metav1.GetOptions{})
+
+					details := map[string]interface{}{
+						"host": rule.Host,
+						"path": path.Path,
+					}
+					if svc != nil {
+						details["cluster_ip"] = svc.Spec.ClusterIP
+						details["service_type"] = string(svc.Spec.Type)
+					}
+
+					relationships = append(relationships, map[string]interface{}{
+						"relationship_type": "Routes To Service",
+						"resource_type":     "Service",
+						"resource_name":     path.Backend.Service.Name,
+						"icon":              "🌐",
+						"details":           details,
+					})
+				}
 			}
 		}
 	}
