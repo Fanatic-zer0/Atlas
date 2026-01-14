@@ -20,9 +20,9 @@ type IngressResponse struct {
 }
 
 type KubeMeta struct {
-    Mode        string // "kubeconfig" or "incluster"
-    ContextName string
-    ClusterName string
+	Mode        string // "kubeconfig" or "incluster"
+	ContextName string
+	ClusterName string
 }
 
 type ServicePort struct {
@@ -38,6 +38,8 @@ type ServiceResponse struct {
 	Namespace     string            `json:"namespace"`
 	Type          string            `json:"type"`
 	ClusterIP     *string           `json:"cluster_ip"`
+	ExternalName  *string           `json:"external_name,omitempty"`
+	ExternalIPs   []string          `json:"external_ips,omitempty"`
 	Ports         []ServicePort     `json:"ports"`
 	Selector      map[string]string `json:"selector"`
 	EndpointCount int               `json:"endpoint_count"`
@@ -125,15 +127,15 @@ type HealthIssue struct {
 
 // Release Types
 type ReleaseResponse struct {
-	DeploymentName string       `json:"deployment_name"`
-	Namespace      string       `json:"namespace"`
-	AppName        string       `json:"app_name,omitempty"`
-	Version        string       `json:"version,omitempty"`
-	Instance       string       `json:"instance,omitempty"`
-	Replicas       int32        `json:"replicas"`
-	CreatedAt      string       `json:"created_at"`
-	ImageTags      []string     `json:"image_tags,omitempty"`
-	HelmRelease    *HelmRelease `json:"helm_release,omitempty"`
+	DeploymentName string   `json:"deployment_name"`
+	Namespace      string   `json:"namespace"`
+	AppName        string   `json:"app_name,omitempty"`
+	Version        string   `json:"version,omitempty"`
+	Instance       string   `json:"instance,omitempty"`
+	Replicas       int32    `json:"replicas"`
+	CreatedAt      string   `json:"created_at"`
+	LastDeployed   string   `json:"last_deployed,omitempty"`
+	ImageTags      []string `json:"image_tags,omitempty"`
 }
 
 type HelmRelease struct {

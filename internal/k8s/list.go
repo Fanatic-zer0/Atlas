@@ -64,14 +64,29 @@ func ListServices(ctx context.Context, cs *kubernetes.Clientset, namespace strin
 	for _, svc := range list.Items {
 		resp := serviceToResponseNoEndpoints(&svc)
 
-		// Check if we have endpoints for this service
-		if ep, ok := endpointsMap[svc.Name]; ok {
+		// ExternalName services don't have endpoints
+		if svc.Spec.Type == corev1.ServiceTypeExternalName {
+			// For ExternalName, health is already set based on whether external_name is configured
+			if resp.ExternalName != nil && *resp.ExternalName != "" {
+				resp.StatusEmoji = "🟢"
+				resp.HealthScore = 100
+			} else {
+				resp.StatusEmoji = "🔴"
+				resp.HealthScore = 0
+			}
+		} else {
+			// For all other service types, check endpoints
 			count := 0
-			if ep.Subsets != nil {
-				for _, ss := range ep.Subsets {
-					count += len(ss.Addresses)
+			if ep, ok := endpointsMap[svc.Name]; ok {
+				// Endpoint object exists, count addresses
+				if ep.Subsets != nil {
+					for _, ss := range ep.Subsets {
+						count += len(ss.Addresses)
+					}
 				}
 			}
+			// If no endpoint object exists, count remains 0
+
 			resp.EndpointCount = count
 
 			// health heuristic: if endpoints=0, it's critical-ish
@@ -186,6 +201,18 @@ func serviceToResponseNoEndpoints(svc *corev1.Service) ServiceResponse {
 		c := svc.Spec.ClusterIP
 		cip = &c
 	}
+
+	var externalName *string
+	if svc.Spec.Type == corev1.ServiceTypeExternalName && svc.Spec.ExternalName != "" {
+		en := svc.Spec.ExternalName
+		externalName = &en
+	}
+
+	var externalIPs []string
+	if len(svc.Spec.ExternalIPs) > 0 {
+		externalIPs = append(externalIPs, svc.Spec.ExternalIPs...)
+	}
+
 	ports := make([]ServicePort, 0, len(svc.Spec.Ports))
 	for _, p := range svc.Spec.Ports {
 		ports = append(ports, ServicePort{
@@ -202,12 +229,21 @@ func serviceToResponseNoEndpoints(svc *corev1.Service) ServiceResponse {
 	}
 
 	health := 100
-	// If selector missing, degrade
-	if len(selector) == 0 {
-		health -= 20
-	}
-	if len(ports) == 0 {
-		health -= 10
+	// ExternalName services don't have selectors or endpoints, but that's expected
+	if svc.Spec.Type == corev1.ServiceTypeExternalName {
+		if externalName != nil && *externalName != "" {
+			health = 100 // Healthy if external name is configured
+		} else {
+			health = 0 // Unhealthy if external name is missing
+		}
+	} else {
+		// If selector missing for non-ExternalName services, degrade
+		if len(selector) == 0 {
+			health -= 20
+		}
+		if len(ports) == 0 {
+			health -= 10
+		}
 	}
 	if health < 0 {
 		health = 0
@@ -218,6 +254,8 @@ func serviceToResponseNoEndpoints(svc *corev1.Service) ServiceResponse {
 		Namespace:     svc.Namespace,
 		Type:          string(svc.Spec.Type),
 		ClusterIP:     cip,
+		ExternalName:  externalName,
+		ExternalIPs:   externalIPs,
 		Ports:         ports,
 		Selector:      selector,
 		EndpointCount: 0,
@@ -545,6 +583,44 @@ func GetReleases(ctx context.Context, cs *kubernetes.Clientset, namespace string
 			CreatedAt:      dep.CreationTimestamp.Time.Format("2006-01-02T15:04:05Z"),
 		}
 
+		// Get last deployed time from deployment status conditions or newest ReplicaSet
+		var lastDeployedTime *metav1.Time
+
+		// First try: Check deployment status conditions
+		for _, condition := range dep.Status.Conditions {
+			if (condition.Type == "Progressing" || condition.Type == "Available") && condition.LastUpdateTime.Time.After(dep.CreationTimestamp.Time) {
+				if lastDeployedTime == nil || condition.LastUpdateTime.After(lastDeployedTime.Time) {
+					lastDeployedTime = &condition.LastUpdateTime
+				}
+			}
+		}
+
+		// Second try: Get the newest ReplicaSet creation time
+		if lastDeployedTime == nil {
+			rsList, err := cs.AppsV1().ReplicaSets(dep.Namespace).List(ctx, metav1.ListOptions{
+				LabelSelector: metav1.FormatLabelSelector(dep.Spec.Selector),
+			})
+			if err == nil && len(rsList.Items) > 0 {
+				for _, rs := range rsList.Items {
+					// Check if this ReplicaSet is owned by this deployment
+					for _, owner := range rs.OwnerReferences {
+						if owner.UID == dep.UID {
+							if lastDeployedTime == nil || rs.CreationTimestamp.After(lastDeployedTime.Time) {
+								lastDeployedTime = &rs.CreationTimestamp
+							}
+							break
+						}
+					}
+				}
+			}
+		}
+
+		if lastDeployedTime != nil {
+			release.LastDeployed = lastDeployedTime.Time.Format("2006-01-02T15:04:05Z")
+		} else {
+			release.LastDeployed = release.CreatedAt
+		}
+
 		// Extract labels
 		if appName, ok := dep.Labels["app"]; ok {
 			release.AppName = appName
@@ -552,45 +628,32 @@ func GetReleases(ctx context.Context, cs *kubernetes.Clientset, namespace string
 			release.AppName = appName
 		}
 
-		if version, ok := dep.Labels["version"]; ok {
-			release.Version = version
-		} else if version, ok := dep.Labels["app.kubernetes.io/version"]; ok {
-			release.Version = version
-		}
-
 		if instance, ok := dep.Labels["app.kubernetes.io/instance"]; ok {
 			release.Instance = instance
 		}
 
-		// Extract image tags
+		// Extract image tags and use main container tag as version
 		imageTags := []string{}
 		if dep.Spec.Template.Spec.Containers != nil {
-			for _, container := range dep.Spec.Template.Spec.Containers {
+			for idx, container := range dep.Spec.Template.Spec.Containers {
 				if container.Image != "" {
 					// Extract tag from image
 					parts := splitLast(container.Image, ":")
+					var tag string
 					if len(parts) == 2 {
-						imageTags = append(imageTags, parts[1])
+						tag = parts[1]
 					} else {
-						imageTags = append(imageTags, "latest")
+						tag = "latest"
+					}
+					imageTags = append(imageTags, tag)
+					// Use first container's image tag as version
+					if idx == 0 && tag != "latest" {
+						release.Version = tag
 					}
 				}
 			}
 		}
 		release.ImageTags = imageTags
-
-		// Check for Helm release annotations
-		if dep.Annotations != nil {
-			if helmChart, ok := dep.Annotations["meta.helm.sh/release-name"]; ok {
-				release.HelmRelease = &HelmRelease{
-					Name:   helmChart,
-					Status: "deployed",
-				}
-				if chartName, ok := dep.Labels["helm.sh/chart"]; ok {
-					release.HelmRelease.Chart = chartName
-				}
-			}
-		}
 
 		releases = append(releases, release)
 	}

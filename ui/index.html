@@ -8,157 +8,214 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" media="print" onload="this.media='all'">
     <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"></noscript>
     <style>
+        :root {
+            /* Dark theme (default) - Ayu Dark */
+            --bg-primary: #0A0E14;
+            --bg-secondary: #0D1017;
+            --bg-tertiary: rgba(17, 21, 28, 0.6);
+            --bg-card: rgba(13, 16, 23, 0.7);
+            --bg-hover: rgba(17, 21, 28, 0.85);
+            --text-primary: #BFBDB6;
+            --text-secondary: #5C6773;
+            --text-accent: #FFB454;
+            --text-muted: #707A8C;
+            --border-color: rgba(92, 103, 115, 0.3);
+            --border-accent: rgba(255, 143, 64, 0.3);
+            --accent-primary: #FF8F40;
+            --accent-hover: #FFB454;
+            --success-color: #AAD94C;
+            --warning-color: #FFB454;
+            --danger-color: #F07178;
+            --info-color: #59C2FF;
+        }
+        
+        body.light-theme {
+            /* Light theme - Ayu Light */
+            --bg-primary: #FAFAFA;
+            --bg-secondary: #FFFFFF;
+            --bg-tertiary: rgba(255, 255, 255, 0.8);
+            --bg-card: rgba(255, 255, 255, 0.95);
+            --bg-hover: rgba(245, 245, 245, 1);
+            --text-primary: #5C6773;
+            --text-secondary: #8A9199;
+            --text-accent: #F07171;
+            --text-muted: #ABB0B6;
+            --border-color: rgba(213, 213, 216, 0.6);
+            --border-accent: rgba(240, 113, 113, 0.4);
+            --accent-primary: #FF8F40;
+            --accent-hover: #FA8D3E;
+            --success-color: #86B300;
+            --warning-color: #F2AE49;
+            --danger-color: #F07171;
+            --info-color: #399EE6;
+        }
+        
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: linear-gradient(135deg, #0A0E14 0%, #0D1017 50%, #11151C 100%);
-            background-attachment: fixed;
-            color: #BFBDB6;
-            line-height: 1.6;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.5;
             margin: 0;
             padding: 0;
+            font-size: 13px;
+            transition: background 0.3s ease, color 0.3s ease;
         }
         .header {
-            background: linear-gradient(135deg, #0D1017 0%, #11151C 50%, #1A1F29 100%);
-            padding: 25px 20px;
-            box-shadow: 0 8px 32px rgba(255, 143, 64, 0.15);
-            border-bottom: 3px solid #FF8F40;
+            background: var(--bg-secondary);
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-accent);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .header-content {
+            flex: 1;
         }
         .header h1 {
-            font-size: 32px;
-            margin: 0 0 12px 0;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            font-size: 20px;
+            margin: 0 0 8px 0;
+            font-weight: 500;
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 8px;
+            color: var(--text-accent);
+        }
+        .theme-toggle {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            padding: 8px 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .theme-toggle:hover {
+            background: var(--bg-hover);
+            border-color: var(--accent-primary);
         }
         .cluster-info {
             display: flex;
-            gap: 25px;
-            font-size: 14px;
-            opacity: 0.95;
+            gap: 16px;
+            font-size: 11px;
+            opacity: 0.7;
             flex-wrap: wrap;
         }
         .cluster-info > span {
-            background: rgba(255, 143, 64, 0.15);
-            padding: 6px 14px;
-            border-radius: 15px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 143, 64, 0.3);
+            background: var(--bg-card);
+            padding: 4px 10px;
+            border-radius: 4px;
+            border: 1px solid var(--border-accent);
         }
         .container {
             max-width: 1600px;
             margin: 0 auto;
-            padding: 25px;
+            padding: 20px;
         }
         .controls {
             display: flex;
-            gap: 12px;
-            margin-bottom: 25px;
+            gap: 10px;
+            margin-bottom: 20px;
             align-items: center;
-            background: rgba(17, 21, 28, 0.6);
-            padding: 15px;
-            border-radius: 12px;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(92, 103, 115, 0.3);
+            background: var(--bg-tertiary);
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
         }
         .controls label {
-            font-weight: 600;
-            color: #FFD580;
+            font-weight: 500;
+            color: var(--text-accent);
+            font-size: 12px;
         }
         select, button, input {
-            padding: 10px 16px;
+            padding: 7px 12px;
             border: none;
-            border-radius: 8px;
-            font-size: 14px;
+            border-radius: 4px;
+            font-size: 12px;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
         }
         select, input {
-            background: #0D1017;
-            color: #BFBDB6;
-            border: 2px solid rgba(92, 103, 115, 0.4);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
         }
         select:focus, input:focus {
             outline: none;
-            border-color: #FFB454;
-            box-shadow: 0 0 0 3px rgba(255, 180, 84, 0.2);
+            border-color: var(--accent-primary);
         }
         button {
-            background: linear-gradient(135deg, #FF8F40 0%, #E6704C 100%);
+            background: var(--accent-primary);
             color: #0A0E14;
-            font-weight: 600;
-            box-shadow: 0 4px 10px rgba(255, 143, 64, 0.3);
+            font-weight: 500;
         }
         button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(255, 143, 64, 0.4);
+            background: var(--accent-hover);
         }
         button:active {
-            transform: translateY(0);
+            transform: scale(0.98);
         }
         .tabs {
             display: flex;
-            gap: 8px;
-            margin-bottom: 25px;
-            border-bottom: 2px solid rgba(92, 103, 115, 0.3);
+            gap: 4px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid rgba(92, 103, 115, 0.2);
             overflow-x: auto;
-            padding-bottom: 2px;
         }
         .tab {
-            padding: 14px 24px;
-            background: rgba(17, 21, 28, 0.5);
+            padding: 10px 16px;
+            background: transparent;
             border: none;
-            color: #5C6773;
+            color: var(--text-secondary);
             cursor: pointer;
-            transition: all 0.3s ease;
-            border-radius: 10px 10px 0 0;
-            font-weight: 500;
-            border-bottom: 3px solid transparent;
+            transition: all 0.2s ease;
+            border-radius: 4px 4px 0 0;
+            font-weight: 400;
+            font-size: 12px;
+            border-bottom: 2px solid transparent;
         }
         .tab:hover {
-            background: rgba(17, 21, 28, 0.8);
-            color: #BFBDB6;
+            color: var(--text-primary);
+            background: var(--bg-tertiary);
         }
         .tab.active {
-            background: linear-gradient(135deg, #FF8F40 0%, #E6704C 100%);
-            color: #0A0E14;
-            border-bottom-color: #FFB454;
-            box-shadow: 0 -2px 15px rgba(255, 143, 64, 0.3);
+            background: var(--bg-tertiary);
+            color: var(--text-accent);
+            border-bottom-color: var(--accent-primary);
         }
         .tab-content {
             display: none;
-            background: rgba(17, 21, 28, 0.5);
-            padding: 25px;
-            border-radius: 12px;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(92, 103, 115, 0.2);
+            background: var(--bg-tertiary);
+            padding: 20px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
         }
         .tab-content.active {
             display: block;
-            animation: fadeIn 0.3s ease-in;
+            animation: fadeIn 0.2s ease-in;
         }
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
-        /* Smooth entrance animations for cards */
         .animate-in {
-            animation: fadeInUp 0.5s ease-out;
+            animation: fadeInUp 0.3s ease-out;
         }
         @keyframes fadeInUp {
             from {
                 opacity: 0;
-                transform: translateY(20px);
+                transform: translateY(10px);
             }
             to {
                 opacity: 1;
                 transform: translateY(0);
             }
         }
-        /* Pulse effect for loading states */
         @keyframes shimmer {
             0% { background-position: -1000px 0; }
             100% { background-position: 1000px 0; }
@@ -169,138 +226,117 @@
             animation: shimmer 2s infinite;
         }
         .tab-content h2 {
-            color: #FFB454;
+            color: var(--text-accent);
             margin-top: 0;
-            margin-bottom: 20px;
-            font-size: 24px;
+            margin-bottom: 16px;
+            font-size: 16px;
+            font-weight: 500;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
         }
         table {
             width: 100%;
             border-collapse: collapse;
-            background: #0D1017;
-            border-radius: 8px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
             overflow: hidden;
+            font-size: 12px;
         }
         th {
-            background: linear-gradient(135deg, #FF8F40 0%, #E6704C 100%);
-            padding: 12px;
+            background: var(--bg-card);
+            padding: 10px;
             text-align: left;
-            font-weight: 600;
-            color: #0A0E14;
+            font-weight: 500;
+            color: var(--text-accent);
+            border-bottom: 1px solid var(--border-accent);
         }
         td {
-            padding: 12px;
-            border-bottom: 1px solid rgba(92, 103, 115, 0.2);
+            padding: 10px;
+            border-bottom: 1px solid var(--border-color);
         }
         tr:hover {
-            background: rgba(17, 21, 28, 0.6);
+            background: var(--bg-hover);
             cursor: pointer;
         }
         .badge {
             display: inline-block;
-            padding: 3px 8px;
+            padding: 2px 8px;
             border-radius: 3px;
-            font-size: 12px;
-            font-weight: 600;
+            font-size: 10px;
+            font-weight: 500;
         }
-        .badge-success { background: #AAD94C; color: #0A0E14; }
-        .badge-warning { background: #FFB454; color: #0A0E14; }
-        .badge-danger { background: #F07178; color: #0A0E14; }
+        .badge-success { background: var(--success-color); color: #0A0E14; }
+        .badge-warning { background: var(--warning-color); color: #0A0E14; }
+        .badge-danger { background: var(--danger-color); color: #FFFFFF; }
+        .badge-info { background: var(--info-color); color: #FFFFFF; }
         .loading {
             text-align: center;
-            padding: 50px;
-            font-size: 18px;
-            color: #FFB454;
+            padding: 40px;
+            font-size: 13px;
+            color: var(--text-accent);
             animation: pulse 1.5s ease-in-out infinite;
         }
         @keyframes pulse {
-            0%, 100% { opacity: 0.6; }
+            0%, 100% { opacity: 0.5; }
             50% { opacity: 1; }
         }
         .health-card {
-            background: linear-gradient(135deg, rgba(13, 16, 23, 0.9) 0%, rgba(17, 21, 28, 0.8) 100%);
-            padding: 25px;
-            border-radius: 12px;
-            margin-bottom: 25px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(92, 103, 115, 0.3);
+            background: var(--bg-card);
+            padding: 16px;
+            border-radius: 6px;
+            margin-bottom: 16px;
+            border: 1px solid var(--border-color);
         }
         .health-card h3 {
-            color: #FFB454;
+            color: var(--text-accent);
             margin-top: 0;
-            font-size: 20px;
-            border-bottom: 2px solid rgba(92, 103, 115, 0.3);
-            padding-bottom: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
         }
         .health-stats {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 18px;
-            margin-top: 18px;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin-top: 12px;
         }
         .stat {
-            background: linear-gradient(135deg, rgba(17, 21, 28, 0.7) 0%, rgba(13, 16, 23, 0.9) 100%);
-            padding: 20px;
-            border-radius: 10px;
+            background: var(--bg-card);
+            padding: 16px;
+            border-radius: 6px;
             text-align: center;
-            border: 2px solid rgba(92, 103, 115, 0.3);
-            transition: all 0.3s ease;
+            border: 1px solid var(--border-color);
+            transition: all 0.2s ease;
         }
         .stat:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 8px 24px rgba(255, 143, 64, 0.2);
-            border-color: rgba(255, 143, 64, 0.5);
+            transform: translateY(-2px);
+            border-color: var(--accent-primary);
         }
         .stat-value {
-            font-size: 36px;
-            font-weight: bold;
-            margin-bottom: 8px;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: var(--text-accent);
         }
         .stat-label {
-            font-size: 14px;
-            color: #5C6773;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        .card {
-            background: linear-gradient(135deg, rgba(13, 16, 23, 0.8) 0%, rgba(17, 21, 28, 0.6) 100%);
-            padding: 18px;
-            border-radius: 10px;
-            transition: all 0.3s ease;
-            border: 2px solid rgba(92, 103, 115, 0.25);
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-        }
-        .card:hover {
-            background: linear-gradient(135deg, rgba(17, 21, 28, 0.9) 0%, rgba(26, 31, 41, 0.7) 100%);
-            transform: translateY(-4px);
-            box-shadow: 0 8px 28px rgba(255, 143, 64, 0.2);
-            border-color: rgba(255, 143, 64, 0.4);
-        }
-        .badge {
-            display: inline-block;
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
+            font-size: 11px;
+            color: var(--text-secondary);
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
-        .badge-success { 
-            background: linear-gradient(135deg, #AAD94C 0%, #91B362 100%);
-            color: #0A0E14;
+        .card {
+            background: var(--bg-card);
+            padding: 14px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            border: 1px solid var(--border-color);
+            margin-bottom: 10px;
         }
-        .badge-warning { 
-            background: linear-gradient(135deg, #FFB454 0%, #E6B450 100%);
-            color: #0A0E14;
-        }
-        .badge-danger { 
-            background: linear-gradient(135deg, #F07178 0%, #D96C75 100%);
-            color: #0A0E14;
+        .card:hover {
+            background: var(--bg-hover);
+            border-color: var(--border-accent);
         }
         .collapsible-header {
             cursor: pointer;
@@ -308,22 +344,22 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 12px;
-            background: rgba(13, 16, 23, 0.6);
-            border-radius: 8px;
-            margin-bottom: 10px;
-            transition: all 0.3s ease;
+            padding: 10px;
+            background: var(--bg-card);
+            border-radius: 4px;
+            margin-bottom: 8px;
+            transition: all 0.2s ease;
+            font-size: 12px;
         }
         .collapsible-header:hover {
-            background: rgba(17, 21, 28, 0.8);
-            box-shadow: 0 2px 8px rgba(255, 143, 64, 0.2);
+            background: var(--bg-hover);
         }
         .collapsible-toggle {
-            font-size: 18px;
-            transition: transform 0.3s ease;
+            font-size: 14px;
+            transition: transform 0.2s ease;
             display: inline-block;
-            margin-right: 10px;
-            color: #FFB454;
+            margin-right: 8px;
+            color: var(--text-accent);
         }
         .collapsible-toggle.collapsed {
             transform: rotate(-90deg);
@@ -331,7 +367,7 @@
         .collapsible-content {
             max-height: 2000px;
             overflow: hidden;
-            transition: max-height 0.4s ease, opacity 0.3s ease;
+            transition: max-height 0.3s ease, opacity 0.2s ease;
             opacity: 1;
         }
         .collapsible-content.collapsed {
@@ -339,43 +375,46 @@
             opacity: 0;
         }
         .info-section {
-            background: rgba(17, 21, 28, 0.5);
-            padding: 15px;
-            border-radius: 8px;
-            margin: 15px 0;
-            border-left: 4px solid #FF8F40;
+            background: var(--bg-tertiary);
+            padding: 12px;
+            border-radius: 4px;
+            margin: 12px 0;
+            border-left: 2px solid var(--accent-primary);
         }
         .info-section h4 {
-            color: #FFD580;
-            margin: 0 0 10px 0;
-            font-size: 16px;
+            color: var(--text-accent);
+            margin: 0 0 8px 0;
+            font-size: 13px;
+            font-weight: 500;
         }
         .info-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 12px;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 10px;
         }
         .info-item {
-            background: rgba(13, 16, 23, 0.7);
-            padding: 10px;
-            border-radius: 6px;
-            border: 1px solid rgba(92, 103, 115, 0.3);
+            background: var(--bg-secondary);
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            font-size: 12px;
         }
         .info-item strong {
-            color: #FFD580;
+            color: var(--text-accent);
             display: block;
-            margin-bottom: 4px;
-            font-size: 12px;
+            margin-bottom: 3px;
+            font-size: 10px;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.3px;
+            font-weight: 500;
         }
         .event-item {
-            background: rgba(17, 21, 28, 0.6);
-            padding: 12px;
-            margin: 8px 0;
-            border-radius: 6px;
-            border-left: 3px solid;
-            font-size: 13px;
+            background: var(--bg-card);
+            padding: 10px;
+            margin: 6px 0;
+            border-radius: 4px;
+            border-left: 2px solid;
+            font-size: 12px;
         }
         .event-normal { border-left-color: #AAD94C; }
         .event-warning { border-left-color: #FFB454; }
@@ -384,10 +423,16 @@
 </head>
 <body>
     <div class="header">
-        <h1>𖤓 SRE Dashboard</h1>
-        <div class="cluster-info" id="clusterInfo">
-            <span>Loading...</span>
+        <div class="header-content">
+            <h1>𖤓 SRE Dashboard</h1>
+            <div class="cluster-info" id="clusterInfo">
+                <span>Loading...</span>
+            </div>
         </div>
+        <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+            <span id="themeIcon">🌙</span>
+            <span id="themeText" style="font-size: 11px;">Dark</span>
+        </button>
     </div>
     
     <div class="container">
@@ -409,13 +454,17 @@
             <button class="tab" onclick="showTab('deployments')">🏗️ Deployments</button>
             <button class="tab" onclick="showTab('configmaps')">📝 ConfigMaps</button>
             <button class="tab" onclick="showTab('secrets')">🔐 Secrets</button>
+            <button class="tab" onclick="showTab('pvpvc')">💾 PV/PVC</button>
             <button class="tab" onclick="showTab('network')">🌐 Network Tests</button>
             <button class="tab" onclick="showTab('health')">🏥 Health</button>
             <button class="tab" onclick="showTab('releases')">🚀 Releases</button>
         </div>
         
         <div id="resourceViewer" class="tab-content active">
-            <h2>Resource Viewer</h2>
+            <h2>🔍 Resource Viewer</h2>
+            <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 15px;">
+                Browse all resources and click any resource to view detailed information including <strong>relationships</strong>, dependencies, and connections
+            </p>
             <div style="margin-bottom: 20px; display: flex; gap: 10px; align-items: center;">
                 <label>Resource Type:</label>
                 <select id="resourceTypeFilter" onchange="loadAllResources()" style="flex: 0 0 200px;">
@@ -485,15 +534,58 @@
         </div>
         
         <div id="releases" class="tab-content">
-            <h2>🚀 Release Versions</h2>
-            <p style="color: #aaa; margin-bottom: 15px;">Track deployment versions and Helm releases</p>
+            <h2>🚀 Releases</h2>
             <button onclick="loadReleases()">Load Releases</button>
             <div id="releasesResults"></div>
+        </div>
+        
+        <div id="pvpvc" class="tab-content">
+            <h2>💾 Persistent Volumes</h2>
+            <button onclick="loadPVPVC()">Load PV/PVC</button>
+            <div id="pvpvcResults"></div>
         </div>
     </div>
 
     <script>
         let currentNamespace = 'default';
+        
+        // Theme management
+        function toggleTheme() {
+            const body = document.body;
+            const themeIcon = document.getElementById('themeIcon');
+            const themeText = document.getElementById('themeText');
+            
+            if (body.classList.contains('light-theme')) {
+                body.classList.remove('light-theme');
+                themeIcon.textContent = '🌙';
+                themeText.textContent = 'Dark';
+                localStorage.setItem('theme', 'dark');
+            } else {
+                body.classList.add('light-theme');
+                themeIcon.textContent = '☀️';
+                themeText.textContent = 'Light';
+                localStorage.setItem('theme', 'light');
+            }
+        }
+        
+        // Load theme preference
+        function loadThemePreference() {
+            const savedTheme = localStorage.getItem('theme');
+            const themeIcon = document.getElementById('themeIcon');
+            const themeText = document.getElementById('themeText');
+            
+            if (savedTheme === 'light') {
+                document.body.classList.add('light-theme');
+                themeIcon.textContent = '☀️';
+                themeText.textContent = 'Light';
+            } else {
+                themeIcon.textContent = '🌙';
+                themeText.textContent = 'Dark';
+            }
+        }
+        
+        // Load theme on page load
+        loadThemePreference();
         let currentTab = 'health';
 
         function showNotImplemented(containerId, featureName) {
@@ -557,6 +649,7 @@
             else if (tabName === 'configmaps') loadConfigMaps();
             else if (tabName === 'secrets') loadSecrets();
             else if (tabName === 'releases') loadReleases();
+            else if (tabName === 'pvpvc') loadPVPVC();
             // Health and network tabs load on button click
         }
 
@@ -574,6 +667,7 @@
             else if (currentTab === 'configmaps') loadConfigMaps();
             else if (currentTab === 'secrets') loadSecrets();
             else if (currentTab === 'releases') loadReleases();
+            else if (currentTab === 'pvpvc') loadPVPVC();
         }
 
         async function loadIngresses() {
@@ -609,52 +703,66 @@
                                 </div>
                                 <div>
                                     ${ing.tls_enabled ? '<span class="badge badge-success">🔒 TLS</span>' : '<span class="badge" style="background: #5C6773; color: #BFBDB6;">No TLS</span>'}
-                                    ${ing.ingress_class ? `<span class="badge" style="background: #59C2FF; color: #0A0E14; margin-left: 8px;">📋 ${ing.ingress_class}</span>` : ''}
+                                    ${ing.loadbalancer_ips && ing.loadbalancer_ips.length > 0 ? `<span class="badge badge-info" style="margin-left: 8px;">${ing.loadbalancer_ips[0]}</span>` : ''}
                                 </div>
                             </div>
                             <div id="ing-${idx}-content" class="collapsible-content collapsed">
-                            
-                            ${ing.hosts && ing.hosts.length > 0 ? `
-                                <div class="info-section">
-                                    <h4>🏷️ Hosts</h4>
-                                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                                        ${ing.hosts.map(host => `<span class="badge" style="background: rgba(89, 194, 255, 0.25); color: #BFBDB6;">${host}</span>`).join('')}
-                                    </div>
-                                </div>
-                            ` : ''}
-                            
-                            ${ing.rules && ing.rules.length > 0 ? `
-                                <div class="info-section">
-                                    <h4>🔀 Rules & Paths</h4>
-                                    ${ing.rules.map(rule => `
-                                        <div style="margin-bottom: 15px; padding: 12px; background: rgba(13, 16, 23, 0.7); border-radius: 8px; border-left: 3px solid #FFB454;">
-                                            <div style="font-weight: bold; color: #FFD580; margin-bottom: 10px;">Host: ${rule.host || 'All hosts'}</div>
-                                            ${rule.paths && rule.paths.length > 0 ? `
-                                                <table style="width: 100%; background: transparent;">
-                                                    <thead>
-                                                        <tr style="background: rgba(17, 21, 28, 0.6);">
-                                                            <th>Path</th>
-                                                            <th>Type</th>
-                                                            <th>Service</th>
-                                                            <th>Port</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        ${rule.paths.map(path => `
-                                                            <tr>
-                                                                <td style="font-family: monospace; color: #59C2FF;">${path.path || '/'}</td>
-                                                                <td>${path.path_type}</td>
-                                                                <td><span class="badge" style="background: #AAD94C; color: #0A0E14;">${path.service_name}</span></td>
-                                                                <td>${path.service_port}</td>
-                                                            </tr>
-                                                        `).join('')}
-                                                    </tbody>
-                                                </table>
-                                            ` : '<p style="color: #5C6773;">No paths defined</p>'}
+                                
+                                ${ing.loadbalancer_ips && ing.loadbalancer_ips.length > 0 ? `
+                                    <div class="info-section">
+                                        <h4>📍 LoadBalancer</h4>
+                                        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                                            ${ing.loadbalancer_ips.map(ip => `
+                                                <span class="badge badge-info">${ip}</span>
+                                            `).join('')}
                                         </div>
-                                    `).join('')}
-                                </div>
-                            ` : ''}
+                                    </div>
+                                ` : ''}
+                                
+                                ${ing.kong_plugins && ing.kong_plugins.length > 0 ? `
+                                    <div class="info-section">
+                                        <h4>🔌 Kong Plugins</h4>
+                                        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                                            ${ing.kong_plugins.map(plugin => `
+                                                <span class="badge" style="background: rgba(170, 217, 76, 0.25); color: var(--text-primary);">${plugin}</span>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+                                ` : ''}
+                                
+                                ${ing.rules && ing.rules.length > 0 ? `
+                                    <div class="info-section">
+                                        <h4>📋 Rules & Backends</h4>
+                                        ${ing.rules.map((rule, ruleIdx) => `
+                                            <div style="margin-bottom: 16px; padding: 12px; background: rgba(89, 194, 255, 0.1); border-radius: 6px; border-left: 3px solid #59C2FF;">
+                                                <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">
+                                                    🌐 ${rule.host || '(any host)'}
+                                                    ${ing.tls_enabled ? ' 🔒' : ''}
+                                                </div>
+                                                ${rule.paths && rule.paths.length > 0 ? `
+                                                    <div style="margin-left: 12px;">
+                                                        ${rule.paths.map((path, pathIdx) => {
+                                                            const protocol = ing.tls_enabled ? 'https' : 'http';
+                                                            const url = rule.host ? `${protocol}://${rule.host}${path.path}` : path.path;
+                                                            return `
+                                                                <div style="margin-bottom: 8px; padding: 8px; background: rgba(15, 20, 26, 0.5); border-radius: 4px;">
+                                                                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                                                                        <code style="color: #FFB454; font-size: 12px;">${path.path}</code>
+                                                                        ${rule.host ? `<a href="${url}" target="_blank" style="color: #59C2FF; text-decoration: none; font-size: 11px;">🔗</a>` : ''}
+                                                                        <span style="font-size: 10px; color: var(--text-muted);">(${path.path_type})</span>
+                                                                    </div>
+                                                                    <div style="font-size: 11px; color: var(--text-secondary);">
+                                                                        → <span style="color: #AAD94C;">${path.service_name}</span>:<span style="color: #F29668;">${path.service_port}</span>
+                                                                    </div>
+                                                                </div>
+                                                            `;
+                                                        }).join('')}
+                                                    </div>
+                                                ` : ''}
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                ` : ''}
                             </div>
                         </div>
                     `).join('')}
@@ -695,21 +803,41 @@
                                     <span id="svc-${idx}-toggle" class="collapsible-toggle collapsed">▼</span>
                                     <h3 style="margin: 0; color: #FFB454;">🔗 ${svc.name}</h3>
                                 </div>
-                                <div>
+                                <div style="display: flex; align-items: center; gap: 10px;">
                                     <span class="badge" style="background: #59C2FF; color: #0A0E14;">${svc.type}</span>
-                                    <span class="badge ${svc.endpoint_count > 0 ? 'badge-success' : 'badge-danger'}" style="margin-left: 8px;">
-                                        ${svc.endpoint_count} endpoint${svc.endpoint_count !== 1 ? 's' : ''}
-                                    </span>
+                                    ${svc.type === 'ExternalName' ? (
+                                        svc.external_name 
+                                        ? `<span class="badge" style="background: #95E6CB; color: #0A0E14; font-family: monospace;">→ ${svc.external_name}</span>`
+                                        : `<span class="badge badge-danger">⚠️ No external name</span>`
+                                    ) : `
+                                        <span class="badge ${svc.endpoint_count > 0 ? 'badge-success' : 'badge-danger'}" style="margin-left: 8px;">
+                                            ${svc.endpoint_count} endpoint${svc.endpoint_count !== 1 ? 's' : ''}
+                                        </span>
+                                    `}
                                 </div>
                             </div>
                             
                             <div id="svc-${idx}-content" class="collapsible-content collapsed">
                             
                             <div class="info-grid" style="margin-bottom: 15px;">
-                                <div class="info-item">
-                                    <strong>Cluster IP</strong>
-                                    <div>${svc.cluster_ip || 'None'}</div>
-                                </div>
+                                ${svc.type !== 'ExternalName' ? `
+                                    <div class="info-item">
+                                        <strong>Cluster IP</strong>
+                                        <div>${svc.cluster_ip || 'None'}</div>
+                                    </div>
+                                ` : ''}
+                                ${svc.type === 'ExternalName' && svc.external_name ? `
+                                    <div class="info-item">
+                                        <strong>External Name</strong>
+                                        <div>${svc.external_name}</div>
+                                    </div>
+                                ` : ''}
+                                ${svc.external_ips && svc.external_ips.length > 0 ? `
+                                    <div class="info-item">
+                                        <strong>External IPs</strong>
+                                        <div>${svc.external_ips.join(', ')}</div>
+                                    </div>
+                                ` : ''}
                                 <div class="info-item">
                                     <strong>Health Score</strong>
                                     <div>${svc.status_emoji} ${svc.health_score}%</div>
@@ -721,7 +849,7 @@
                                     <h4>🔌 Ports & Target Ports</h4>
                                     <table style="width: 100%; background: transparent;">
                                         <thead>
-                                            <tr style="background: rgba(17, 21, 28, 0.6);">
+                                            <tr style="background: var(--bg-card);">
                                                 <th>Name</th>
                                                 <th>Protocol</th>
                                                 <th>Port</th>
@@ -734,8 +862,8 @@
                                                 <tr>
                                                     <td>${port.name || '-'}</td>
                                                     <td>${port.protocol}</td>
-                                                    <td><span class="badge" style="background: #AAD94C; color: #0A0E14;">${port.port}</span></td>
-                                                    <td><span class="badge" style="background: #59C2FF; color: #0A0E14;">${port.target_port}</span></td>
+                                                    <td><span class="badge badge-success">${port.port}</span></td>
+                                                    <td><span class="badge badge-info">${port.target_port}</span></td>
                                                     ${svc.type === 'NodePort' ? `<td>${port.node_port || '-'}</td>` : ''}
                                                 </tr>
                                             `).join('')}
@@ -744,19 +872,40 @@
                                 </div>
                             ` : ''}
                             
-                            ${svc.selector && Object.keys(svc.selector).length > 0 ? `
+                            ${svc.type !== 'ExternalName' && svc.selector && Object.keys(svc.selector).length > 0 ? `
                                 <div class="info-section">
                                     <h4>🎯 Pod Selector (Routing)</h4>
                                     <div style="display: flex; flex-wrap: wrap; gap: 8px;">
                                         ${Object.entries(svc.selector).map(([key, value]) => 
-                                            `<span class="badge" style="background: rgba(210, 166, 255, 0.3); color: #BFBDB6;">${key}: ${value}</span>`
+                                            `<span class="badge badge-info" style="font-family: monospace;">${key}: ${value}</span>`
                                         ).join('')}
                                     </div>
-                                    <p style="margin-top: 10px; font-size: 0.9em; color: #5C6773;">
+                                    <p style="margin-top: 10px; font-size: 0.9em; color: var(--text-secondary);">
                                         This service routes traffic to pods matching these labels
                                     </p>
                                 </div>
-                            ` : '<div class="info-section"><p style="color: #FFB454;">⚠️ No selector defined</p></div>'}
+                            ` : (svc.type !== 'ExternalName' ? '<div class="info-section"><p style="color: var(--warning-color);">⚠️ No selector defined</p></div>' : '')}
+                            
+                            ${svc.type === 'ExternalName' ? `
+                                <div class="info-section" style="background: #1A2332; padding: 15px; border-radius: 6px; border-left: 3px solid #59C2FF;">
+                                    <h4 style="margin-bottom: 10px; color: #59C2FF;">🌐 External Routing</h4>
+                                    ${svc.external_name ? `
+                                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                                            <strong>Routes to:</strong>
+                                            <span class="badge badge-success" style="font-family: monospace; font-size: 1em;">
+                                                ${svc.external_name}
+                                            </span>
+                                        </div>
+                                        <p style="font-size: 0.9em; color: #5C6773; margin: 0;">
+                                            ℹ️ This service routes traffic to an external DNS name. No ClusterIP or pod selectors are used.
+                                        </p>
+                                    ` : `
+                                        <p style="color: #F07178; margin: 0;">
+                                            ⚠️ No external name configured for this ExternalName service
+                                        </p>
+                                    `}
+                                </div>
+                            ` : ''}
                             </div>
                         </div>
                     `).join('')}
@@ -1134,43 +1283,20 @@
                         </div>
                     </div>
                     
-                    ${data.nodes && data.nodes.length > 0 ? `
-                        <div class="health-card">
-                            <h3>🖥️ Cluster Nodes</h3>
-                            <div style="display: grid; gap: 10px;">
-                                ${data.nodes.map(node => `
-                                    <div class="info-section">
-                                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                                            <strong style="color: #a78bfa;">${node.name}</strong>
-                                            <span class="badge ${node.status === 'Ready' ? 'badge-success' : 'badge-danger'}">
-                                                ${node.status}
-                                            </span>
-                                        </div>
-                                        <div class="info-grid" style="margin-top: 10px;">
-                                            <div class="info-item"><strong>CPU</strong><div>${node.cpu}</div></div>
-                                            <div class="info-item"><strong>Memory</strong><div>${node.memory}</div></div>
-                                            <div class="info-item"><strong>OS</strong><div style="font-size: 0.85em;">${node.os}</div></div>
-                                        </div>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                    ` : ''}
-                    
                     <div class="health-card">
                         <h3>📦 Pod Health</h3>
                         <div class="health-stats">
-                            <div class="stat" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
-                                <div class="stat-value">${data.pod_health.healthy}</div>
-                                <div class="stat-label">🟢 Healthy</div>
+                            <div class="stat" style="background: var(--success-color); color: #0A0E14;">
+                                <div class="stat-value" style="color: #0A0E14;">${data.pod_health.healthy}</div>
+                                <div class="stat-label" style="color: #0A0E14;">🟢 Healthy</div>
                             </div>
-                            <div class="stat" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
-                                <div class="stat-value">${data.pod_health.degraded}</div>
-                                <div class="stat-label">🟡 Degraded</div>
+                            <div class="stat" style="background: var(--warning-color); color: #0A0E14;">
+                                <div class="stat-value" style="color: #0A0E14;">${data.pod_health.degraded}</div>
+                                <div class="stat-label" style="color: #0A0E14;">🟡 Degraded</div>
                             </div>
-                            <div class="stat" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
-                                <div class="stat-value">${data.pod_health.critical}</div>
-                                <div class="stat-label">🔴 Critical</div>
+                            <div class="stat" style="background: var(--danger-color); color: #FFFFFF;">
+                                <div class="stat-value" style="color: #FFFFFF;">${data.pod_health.critical}</div>
+                                <div class="stat-label" style="color: #FFFFFF;">🔴 Critical</div>
                             </div>
                         </div>
                     </div>
@@ -1179,17 +1305,17 @@
                         <div class="health-card">
                             <h3>🏗️ Deployment Health</h3>
                             <div class="health-stats">
-                                <div class="stat" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
-                                    <div class="stat-value">${data.deployment_health.healthy}</div>
-                                    <div class="stat-label">🟢 Healthy</div>
+                                <div class="stat" style="background: var(--success-color); color: #0A0E14;">
+                                    <div class="stat-value" style="color: #0A0E14;">${data.deployment_health.healthy}</div>
+                                    <div class="stat-label" style="color: #0A0E14;">🟢 Healthy</div>
                                 </div>
-                                <div class="stat" style="background: linear-gradient(135deg, #FFB454 0%, #E6B450 100%); color: #0A0E14;">
-                                    <div class="stat-value">${data.deployment_health.degraded}</div>
-                                    <div class="stat-label">🟡 Degraded</div>
+                                <div class="stat" style="background: var(--warning-color); color: #0A0E14;">
+                                    <div class="stat-value" style="color: #0A0E14;">${data.deployment_health.degraded}</div>
+                                    <div class="stat-label" style="color: #0A0E14;">🟡 Degraded</div>
                                 </div>
-                                <div class="stat" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
-                                    <div class="stat-value">${data.deployment_health.critical}</div>
-                                    <div class="stat-label">🔴 Critical</div>
+                                <div class="stat" style="background: var(--danger-color); color: #FFFFFF;">
+                                    <div class="stat-value" style="color: #FFFFFF;">${data.deployment_health.critical}</div>
+                                    <div class="stat-label" style="color: #FFFFFF;">🔴 Critical</div>
                                 </div>
                             </div>
                         </div>
@@ -1199,13 +1325,13 @@
                         <div class="health-card">
                             <h3>🔗 Service Health</h3>
                             <div class="health-stats">
-                                <div class="stat" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
-                                    <div class="stat-value">${data.service_health.with_endpoints}</div>
-                                    <div class="stat-label">✓ With Endpoints</div>
+                                <div class="stat" style="background: var(--success-color); color: #0A0E14;">
+                                    <div class="stat-value" style="color: #0A0E14;">${data.service_health.with_endpoints}</div>
+                                    <div class="stat-label" style="color: #0A0E14;">✓ With Endpoints</div>
                                 </div>
-                                <div class="stat" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
-                                    <div class="stat-value">${data.service_health.without_endpoints}</div>
-                                    <div class="stat-label">✗ No Endpoints</div>
+                                <div class="stat" style="background: var(--danger-color); color: #FFFFFF;">
+                                    <div class="stat-value" style="color: #FFFFFF;">${data.service_health.without_endpoints}</div>
+                                    <div class="stat-label" style="color: #FFFFFF;">✗ No Endpoints</div>
                                 </div>
                             </div>
                         </div>
@@ -1221,7 +1347,7 @@
                                         <div class="event-item ${eventClass}">
                                             <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 6px;">
                                                 <div>
-                                                    <strong style="color: #a78bfa;">${event.reason}</strong>
+                                                    <strong style="color: var(--text-accent);">${event.reason}</strong>
                                                     <span style="margin-left: 10px; font-size: 0.85em; opacity: 0.8;">${event.resource}</span>
                                                 </div>
                                                 <div style="text-align: right;">
@@ -1242,16 +1368,42 @@
                         <div class="health-card">
                             <h3>⚠️ Top Issues</h3>
                             ${data.issues.map(issue => `
-                                <div style="background: rgba(240, 113, 120, 0.15); padding: 12px; margin: 10px 0; border-radius: 8px; border-left: 4px solid #F07178;">
+                                <div style="background: rgba(240, 113, 120, 0.15); padding: 12px; margin: 10px 0; border-radius: 8px; border-left: 4px solid var(--danger-color);">
                                     <div style="display: flex; justify-content: space-between; align-items: center;">
                                         <span>${issue.emoji} ${issue.resource_name}</span>
                                         <span class="badge badge-danger">${issue.severity.toUpperCase()}</span>
                                     </div>
-                                    <div style="margin-top: 6px; font-size: 0.9em; color: #d1d5db;">${issue.message}</div>
+                                    <div style="margin-top: 6px; font-size: 0.9em; color: var(--text-primary);">${issue.message}</div>
                                 </div>
                             `).join('')}
                         </div>
-                    ` : '<div class="health-card"><div style="text-align: center; padding: 20px;"><span style="font-size: 48px;">✓</span><p style="color: #AAD94C; font-size: 18px; margin-top: 10px;">No issues detected</p></div></div>'}
+                    ` : '<div class="health-card"><div style="text-align: center; padding: 20px;"><span style="font-size: 48px;">✓</span><p style="color: var(--success-color); font-size: 18px; margin-top: 10px;">No issues detected</p></div></div>'}
+                    
+                    ${data.nodes && data.nodes.length > 0 ? `
+                        <div class="health-card">
+                            <div class="collapsible-header" onclick="toggleCollapse('health-nodes')">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <span class="collapsible-toggle collapsed" id="health-nodes-toggle">▼</span>
+                                    <h3 style="margin: 0; font-size: 14px;">🖥️ Cluster Nodes (${data.nodes.length})</h3>
+                                </div>
+                            </div>
+                            <div class="collapsible-content collapsed" id="health-nodes-content" style="display: grid; gap: 10px;">
+                                ${data.nodes.map(node => `
+                                    <div class="info-section">
+                                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                                            <strong style="color: var(--text-accent);">${node.name}</strong>
+                                            <span class="badge ${node.status === 'Ready' ? 'badge-success' : 'badge-danger'}">${node.status}</span>
+                                        </div>
+                                        <div class="info-grid" style="margin-top: 10px;">
+                                            <div class="info-item"><strong>CPU</strong><div>${node.cpu}</div></div>
+                                            <div class="info-item"><strong>Memory</strong><div>${node.memory}</div></div>
+                                            <div class="info-item"><strong>OS</strong><div style="font-size: 0.85em;">${node.os}</div></div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
                 `;
             } catch (error) {
                 container.innerHTML = `<p style="color: #ef4444;">Error: ${error.message}</p>`;
@@ -1271,117 +1423,350 @@
                     return;
                 }
                 
-                let html = '<div style="display: grid; gap: 20px;">';
+                // Calculate age
+                const calculateAge = (createdAt) => {
+                    const now = new Date();
+                    const created = new Date(createdAt);
+                    const diffMs = now - created;
+                    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                    if (diffDays === 0) return 'Today';
+                    if (diffDays === 1) return '1 day';
+                    if (diffDays < 365) return `${diffDays}d`;
+                    const years = Math.floor(diffDays / 365);
+                    const remainingDays = diffDays % 365;
+                    return `${years}y${remainingDays}d`;
+                };
                 
-                releases.forEach(release => {
-                    const hasVersion = release.version || release.helm_release;
-                    const versionBadgeColor = hasVersion ? '#AAD94C' : '#5C6773';
+                let html = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Application</th>
+                                <th>Namespace</th>
+                                <th>Version</th>
+                                <th>Replicas</th>
+                                <th>Age</th>
+                                <th>Last Deployed</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                releases.forEach((release) => {
+                    const version = release.version || '-';
+                    const age = calculateAge(release.created_at);
+                    const lastDeployed = release.last_deployed ? calculateAge(release.last_deployed) : calculateAge(release.created_at);
                     
                     html += `
-                        <div class="health-card" style="background: linear-gradient(135deg, rgba(45,45,68,0.9) 0%, rgba(26,26,46,0.9) 100%);">
-                            <div style="display: flex; justify-content: between; align-items: start; margin-bottom: 15px;">
-                                <div style="flex: 1;">
-                                    <h3 style="color: #a78bfa; margin-bottom: 8px;">
-                                        🚀 ${release.deployment_name}
-                                    </h3>
-                                    ${release.app_name ? `<div style="color: #5C6773; font-size: 0.9em; margin-bottom: 4px;">App: ${release.app_name}</div>` : ''}
-                                </div>
-                                ${release.version ? `
-                                    <div class="badge" style="background: ${versionBadgeColor}; font-size: 14px; padding: 8px 16px;">
-                                        v${release.version}
-                                    </div>
-                                ` : ''}
-                            </div>
-                            
-                            <div class="info-grid">
-                                <div class="info-item">
-                                    <strong>Namespace</strong>
-                                    <div>${release.namespace}</div>
-                                </div>
-                                <div class="info-item">
-                                    <strong>Replicas</strong>
-                                    <div>${release.replicas}</div>
-                                </div>
-                                ${release.instance ? `
-                                    <div class="info-item">
-                                        <strong>Instance</strong>
-                                        <div>${release.instance}</div>
-                                    </div>
-                                ` : ''}
-                                <div class="info-item">
-                                    <strong>Created</strong>
-                                    <div style="font-size: 0.85em;">${new Date(release.created_at).toLocaleDateString()}</div>
-                                </div>
-                            </div>
-                            
-                            ${release.image_tags && release.image_tags.length > 0 ? `
-                                <div class="info-section" style="margin-top: 15px;">
-                                    <h4 style="color: #c4b5fd; margin-bottom: 10px;">🐳 Container Images</h4>
-                                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                                        ${release.image_tags.map(tag => `
-                                            <span class="badge" style="background: rgba(99,102,241,0.3); font-family: monospace; font-size: 0.85em;">
-                                                ${tag}
-                                            </span>
-                                        `).join('')}
-                                    </div>
-                                </div>
-                            ` : ''}
-                            
-                            ${release.helm_release ? `
-                                <div class="info-section" style="margin-top: 15px; padding: 15px; background: rgba(210,166,255,0.1); border-radius: 8px; border-left: 4px solid #D2A6FF;">
-                                    <h4 style="color: #c4b5fd; margin-bottom: 12px;">⎈ Helm Release: ${release.helm_release.name}</h4>
-                                    <div class="info-grid">
-                                        <div class="info-item">
-                                            <strong>Chart</strong>
-                                            <div>${release.helm_release.chart}</div>
-                                        </div>
-                                        <div class="info-item">
-                                            <strong>Chart Version</strong>
-                                            <div>${release.helm_release.chart_version}</div>
-                                        </div>
-                                        <div class="info-item">
-                                            <strong>App Version</strong>
-                                            <div>${release.helm_release.app_version}</div>
-                                        </div>
-                                        <div class="info-item">
-                                            <strong>Status</strong>
-                                            <div>
-                                                <span class="badge ${release.helm_release.status === 'deployed' ? 'badge-success' : 'badge-warning'}">
-                                                    ${release.helm_release.status}
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <div class="info-item">
-                                            <strong>Revision</strong>
-                                            <div>${release.helm_release.revision}</div>
-                                        </div>
-                                        <div class="info-item">
-                                            <strong>Last Updated</strong>
-                                            <div style="font-size: 0.85em;">${release.helm_release.updated}</div>
-                                        </div>
-                                    </div>
-                                    ${release.helm_release.description ? `
-                                        <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(139,92,246,0.3); font-size: 0.9em; color: #d1d5db;">
-                                            ${release.helm_release.description}
-                                        </div>
-                                    ` : ''}
-                                </div>
-                            ` : `
-                                <div style="margin-top: 15px; padding: 12px; background: rgba(92,103,115,0.15); border-radius: 8px; border-left: 4px solid #5C6773;">
-                                    <p style="color: #5C6773; font-size: 0.9em; margin: 0;">
-                                        ℹ️ No Helm release information available (manual deployment)
-                                    </p>
-                                </div>
-                            `}
-                        </div>
+                        <tr onclick="showReleaseDetails('${release.deployment_name}', '${release.namespace}')" style="cursor: pointer;">
+                            <td><strong>${release.deployment_name}</strong></td>
+                            <td>${release.namespace}</td>
+                            <td>${version}</td>
+                            <td>${release.replicas}</td>
+                            <td>${age}</td>
+                            <td>${lastDeployed}</td>
+                        </tr>
                     `;
                 });
                 
-                html += '</div>';
+                html += `
+                        </tbody>
+                    </table>
+                    <div id="releaseDetails" style="margin-top: 20px;"></div>
+                `;
+                
                 container.innerHTML = html;
                 
             } catch (error) {
-                container.innerHTML = `<p style="color: #ef4444;">Error: ${error.message}</p>`;
+                container.innerHTML = `<p style="color: var(--danger-color);">Error: ${error.message}</p>`;
+            }
+        }
+
+        async function showReleaseDetails(deploymentName, namespace) {
+            const container = document.getElementById('releaseDetails');
+            container.innerHTML = '<div class="loading">Loading details...</div>';
+            
+            try {
+                const response = await fetch(`/api/releases/${namespace}`);
+                const releases = await response.json();
+                const release = releases.find(r => r.deployment_name === deploymentName);
+                
+                if (!release) {
+                    container.innerHTML = '<p>Release not found</p>';
+                    return;
+                }
+                
+                let html = `
+                    <div class="health-card">
+                        <h3>${release.deployment_name}</h3>
+                        ${release.image_tags && release.image_tags.length > 0 ? `
+                            <div class="info-section" style="margin-top: 15px;">
+                                <h4>🐳 Container Images</h4>
+                                <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                                    ${release.image_tags.map(tag => `
+                                        <span class="badge badge-info" style="font-family: monospace; font-size: 11px;">
+                                            ${tag}
+                                        </span>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+                
+                container.innerHTML = html;
+            } catch (error) {
+                container.innerHTML = `<p style="color: var(--danger-color);">Error: ${error.message}</p>`;
+            }
+        }
+
+        async function loadPVPVC() {
+            const container = document.getElementById('pvpvcResults');
+            container.innerHTML = '<div class="loading">Loading PV/PVC information...</div>';
+            
+            try {
+                const response = await fetch(`/api/pvpvc/${currentNamespace}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.pvcs.length === 0 && data.unbound_pvs.length === 0) {
+                    container.innerHTML = '<p>No persistent volumes or claims found</p>';
+                    return;
+                }
+                
+                // Build summary
+                let html = `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px;">
+                        <div class="health-card">
+                            <div style="font-size: 24px; font-weight: bold; color: var(--primary-color);">${data.summary.total_pvcs}</div>
+                            <div style="color: var(--text-secondary); font-size: 12px;">Total PVCs</div>
+                        </div>
+                        <div class="health-card">
+                            <div style="font-size: 24px; font-weight: bold; color: var(--success-color);">${data.summary.bound_pvcs}</div>
+                            <div style="color: var(--text-secondary); font-size: 12px;">Bound</div>
+                        </div>
+                        <div class="health-card">
+                            <div style="font-size: 24px; font-weight: bold; color: var(--warning-color);">${data.summary.pending_pvcs}</div>
+                            <div style="color: var(--text-secondary); font-size: 12px;">Pending</div>
+                        </div>
+                        <div class="health-card">
+                            <div style="font-size: 24px; font-weight: bold; color: var(--info-color);">${data.summary.unbound_pvs}</div>
+                            <div style="color: var(--text-secondary); font-size: 12px;">Unbound PVs</div>
+                        </div>
+                    </div>
+                `;
+                
+                // PVC Table
+                if (data.pvcs.length > 0) {
+                    html += `
+                        <h3 style="margin-top: 20px;">Persistent Volume Claims</h3>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>PVC Name</th>
+                                    <th>Status</th>
+                                    <th>Storage</th>
+                                    <th>Storage Class</th>
+                                    <th>Access Modes</th>
+                                    <th>Bound PV</th>
+                                    <th>Volume Type</th>
+                                    <th>Mode</th>
+                                    <th>Using Pods</th>
+                                    <th>Age</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+                    
+                    data.pvcs.forEach(pvc => {
+                        const statusClass = pvc.status === 'Bound' ? 'badge-success' : 
+                                        pvc.status === 'Pending' ? 'badge-warning' : 'badge-danger';
+                        const storage = pvc.actual_storage || pvc.requested_storage || '-';
+                        const accessModes = (pvc.access_modes || []).join(', ') || '-';
+                        const volumeType = pvc.pv_details ? pvc.pv_details.volume_type : '-';
+                        const volumeMode = pvc.pv_details ? (pvc.pv_details.volume_mode || 'Filesystem') : '-';
+                        const ageDays = pvc.age_days || 0;
+                        const ageDisplay = ageDays === 0 ? 'Today' : ageDays === 1 ? '1 day' : `${ageDays}d`;
+                        
+                        let podsHtml = '-';
+                        if (pvc.pod_count > 0) {
+                            podsHtml = `<span style="color: var(--success-color); cursor: pointer;" title="Click to see pod details">${pvc.pod_count} pod(s) 🔽</span>`;
+                        } else {
+                            podsHtml = `<span style="color: var(--text-secondary);">No pods</span>`;
+                        }
+                        
+                        // Volume type icon
+                        const volumeIcon = volumeType === 'HostPath' ? '📁' :
+                                         volumeType === 'NFS' ? '🌐' :
+                                         volumeType === 'CSI' ? '🔌' :
+                                         volumeType.includes('AWS') ? '☁️' :
+                                         volumeType.includes('Azure') ? '☁️' :
+                                         volumeType.includes('GCE') ? '☁️' :
+                                         volumeType === 'Local' ? '💽' : '📦';
+                        
+                        html += `
+                            <tr>
+                                <td><strong>${pvc.name}</strong></td>
+                                <td><span class="badge ${statusClass}">${pvc.status}</span></td>
+                                <td><strong>${storage}</strong></td>
+                                <td>${pvc.storage_class || '-'}</td>
+                                <td style="font-size: 10px;">${accessModes}</td>
+                                <td><code style="font-size: 10px;">${pvc.volume_name || '-'}</code></td>
+                                <td>${volumeIcon} ${volumeType}</td>
+                                <td><span style="font-size: 10px;">${volumeMode}</span></td>
+                                <td>${podsHtml}</td>
+                                <td>${ageDisplay}</td>
+                            </tr>
+                        `;
+                        
+                        // Show pod details if any pods are using this PVC
+                        if (pvc.pod_details && pvc.pod_details.length > 0) {
+                            html += `
+                                <tr style="background: var(--hover-bg); border-left: 3px solid var(--success-color);">
+                                    <td colspan="10" style="padding: 15px 15px 15px 40px;">
+                                        <strong style="color: var(--success-color);">🚀 Pods using this PVC:</strong>
+                                        <div style="margin-top: 10px; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 10px;">
+                            `;
+                            
+                            pvc.pod_details.forEach(pod => {
+                                const podStatusClass = pod.status === 'Running' ? 'badge-success' :
+                                                      pod.status === 'Pending' ? 'badge-warning' :
+                                                      pod.status === 'Failed' ? 'badge-danger' :
+                                                      pod.status === 'Terminating' ? 'badge-warning' : 'badge-secondary';
+                                const podAge = pod.age_days === 0 ? 'Today' : pod.age_days === 1 ? '1 day' : `${pod.age_days}d`;
+                                const restartBadge = pod.restart_count > 0 ? 
+                                    `<span class="badge ${pod.restart_count > 5 ? 'badge-danger' : 'badge-warning'}" style="font-size: 10px;">↻ ${pod.restart_count}</span>` : 
+                                    `<span class="badge badge-success" style="font-size: 10px;">↻ 0</span>`;
+                                
+                                html += `
+                                    <div style="background: var(--card-bg); padding: 12px; border-radius: 8px; border-left: 3px solid var(--primary-color);">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                            <strong style="font-size: 13px;">${pod.name}</strong>
+                                            <span class="badge ${podStatusClass}" style="font-size: 10px;">${pod.status}</span>
+                                        </div>
+                                        <div style="font-size: 11px; color: var(--text-secondary); line-height: 1.6;">
+                                            <div>📍 <strong>Node:</strong> ${pod.node || 'Not assigned'}</div>
+                                            <div style="display: flex; gap: 15px; margin-top: 5px;">
+                                                <span>⏱️ ${podAge}</span>
+                                                <span>${restartBadge}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                            
+                            html += `
+                                        </div>
+                                    </td>
+                                </tr>
+                            `;
+                        }
+                        
+                        // Show PV details if available
+                        if (pvc.pv_details) {
+                            const pv = pvc.pv_details;
+                            const detailsArr = [
+                                `Capacity: <strong>${pv.capacity}</strong>`,
+                                `Reclaim: <span class="badge badge-info">${pv.reclaim_policy}</span>`,
+                                `Type: ${pv.volume_type}`
+                            ];
+                            if (pv.node_affinity) {
+                                detailsArr.push(`Node Affinity: ${pv.node_affinity}`);
+                            }
+                            if (Object.keys(pv.volume_details).length > 0) {
+                                const volDetails = Object.entries(pv.volume_details)
+                                    .map(([k, v]) => `${k}: ${v}`)
+                                    .join(', ');
+                                detailsArr.push(volDetails);
+                            }
+                            html += `
+                                <tr style="background: var(--card-bg); font-size: 11px; border-left: 3px solid var(--primary-color);">
+                                    <td colspan="10" style="padding-left: 40px; padding: 12px 12px 12px 40px;">
+                                        📦 <strong>PV Details [${pv.name}]:</strong> ${detailsArr.join(' | ')}
+                                    </td>
+                                </tr>
+                            `;
+                        }
+                    });
+                    
+                    html += `
+                            </tbody>
+                        </table>
+                    `;
+                }
+                
+                // Unbound PVs Table
+                if (data.unbound_pvs.length > 0) {
+                    html += `
+                        <h3 style="margin-top: 20px;">Available/Unbound Persistent Volumes</h3>
+                        <p style="color: var(--text-secondary); font-size: 12px; margin-top: -10px; margin-bottom: 10px;">These PVs are available for binding or were released from this namespace</p>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>PV Name</th>
+                                    <th>Status</th>
+                                    <th>Capacity</th>
+                                    <th>Storage Class</th>
+                                    <th>Access Modes</th>
+                                    <th>Reclaim Policy</th>
+                                    <th>Volume Type</th>
+                                    <th>Mode</th>
+                                    <th>Age</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+                    
+                    data.unbound_pvs.forEach(pv => {
+                        const statusClass = pv.status === 'Available' ? 'badge-info' : 
+                                        pv.status === 'Released' ? 'badge-warning' : 'badge-danger';
+                        const accessModes = (pv.access_modes || []).join(', ') || '-';
+                        const volumeMode = pv.volume_mode || 'Filesystem';
+                        const ageDays = pv.age_days || 0;
+                        const ageDisplay = ageDays === 0 ? 'Today' : ageDays === 1 ? '1 day' : `${ageDays}d`;
+                        
+                        // Volume type icon
+                        const volumeIcon = pv.volume_type === 'HostPath' ? '📁' :
+                                         pv.volume_type === 'NFS' ? '🌐' :
+                                         pv.volume_type === 'CSI' ? '🔌' :
+                                         pv.volume_type.includes('AWS') ? '☁️' :
+                                         pv.volume_type.includes('Azure') ? '☁️' :
+                                         pv.volume_type.includes('GCE') ? '☁️' :
+                                         pv.volume_type === 'Local' ? '💽' : '📦';
+                        
+                        html += `
+                            <tr>
+                                <td><strong>${pv.name}</strong></td>
+                                <td><span class="badge ${statusClass}">${pv.status}</span></td>
+                                <td><strong>${pv.capacity}</strong></td>
+                                <td>${pv.storage_class || '-'}</td>
+                                <td style="font-size: 10px;">${accessModes}</td>
+                                <td><span class="badge badge-secondary">${pv.reclaim_policy}</span></td>
+                                <td>${volumeIcon} ${pv.volume_type}</td>
+                                <td><span style="font-size: 10px;">${volumeMode}</span></td>
+                                <td>${ageDisplay}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    html += `
+                            </tbody>
+                        </table>
+                    `;
+                }
+                
+                container.innerHTML = html;
+                
+            } catch (error) {
+                container.innerHTML = `
+                    <div class="health-card" style="padding: 20px;">
+                        <p style="color: var(--danger-color);">❌ Error loading PV/PVC data: ${error.message}</p>
+                    </div>
+                `;
             }
         }
 
@@ -1554,28 +1939,50 @@
                         relGroups[rel.relationship_type].push(rel);
                     });
                     
-                    html += '<h3 style="margin-top: 20px; color: #D2A6FF;">🔗 Relationships</h3>';
+                    html += `
+                        <div style="margin-top: 25px; padding-top: 20px; border-top: 2px solid rgba(139,92,246,0.3);">
+                            <h3 style="color: #D2A6FF; display: flex; align-items: center; gap: 10px;">
+                                🔗 Dependencies & Connections 
+                                <span style="font-size: 13px; color: var(--text-secondary); font-weight: normal;">(${resource.relationships.length} total)</span>
+                            </h3>
+                            <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 15px;">
+                                Click any related resource below to view its details
+                            </p>
+                        </div>
+                    `;
                     
                     Object.keys(relGroups).forEach(relType => {
                         const rels = relGroups[relType];
+                        const relIcon = rels[0].icon || '🔗';
+                        
                         html += `
-                            <div style="margin: 15px 0;">
-                                <h4 style="color: #FFB454;">${relType} (${rels.length})</h4>
-                                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px;">
+                            <div style="margin: 20px 0;">
+                                <h4 style="color: #FFB454; display: flex; align-items: center; gap: 8px;">
+                                    ${relIcon} ${relType} <span class="badge badge-info" style="font-size: 11px;">${rels.length}</span>
+                                </h4>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-top: 10px;">
                         `;
                         
                         rels.forEach(rel => {
-                            const icon = getResourceIcon(rel.resource_type);
+                            const icon = rel.icon || getResourceIcon(rel.resource_type);
+                            const hasDetails = rel.details && Object.keys(rel.details).length > 0;
+                            
                             html += `
-                                <div class="card" style="cursor: pointer; background: #2d2d44;" 
+                                <div class="card" style="cursor: pointer; background: linear-gradient(135deg, rgba(45,45,68,0.8) 0%, rgba(35,35,58,0.8) 100%); 
+                                                          border-left: 3px solid #8B5CF6; transition: all 0.3s ease;
+                                                          hover: transform: translateY(-2px); box-shadow: 0 4px 12px rgba(139,92,246,0.3);" 
                                      onclick="loadResourceDetails('${rel.resource_type}', '${namespace}', '${rel.resource_name}')">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <div>
-                                            <strong>${icon} ${rel.resource_name}</strong>
-                                            <div style="font-size: 0.9em; color: #5C6773;">${rel.resource_type}</div>
+                                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                                        <div style="flex: 1;">
+                                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+                                                <span style="font-size: 18px;">${icon}</span>
+                                                <strong style="color: #fff;">${rel.resource_name}</strong>
+                                            </div>
+                                            <div style="font-size: 11px; color: #8B92A7; margin-left: 26px;">${rel.resource_type}</div>
                                         </div>
+                                        <span style="color: #8B5CF6; font-size: 18px;">→</span>
                                     </div>
-                                    ${rel.details ? formatRelationshipDetails(rel.details) : ''}
+                                    ${hasDetails ? formatRelationshipDetails(rel.details) : ''}
                                 </div>
                             `;
                         });
@@ -1583,7 +1990,11 @@
                         html += '</div></div>';
                     });
                 } else {
-                    html += '<p style="color: #5C6773; margin-top: 20px;">No relationships found</p>';
+                    html += `
+                        <div style="margin-top: 25px; padding: 20px; border-top: 2px solid rgba(139,92,246,0.3); text-align: center;">
+                            <p style="color: #5C6773;">No relationships found for this resource</p>
+                        </div>
+                    `;
                 }
                 
                 html += '</div>';

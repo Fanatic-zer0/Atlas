@@ -1,8 +1,11 @@
 package k8s
 
 import (
+	"net/http"
 	"os"
 	"path/filepath"
+	"time"
+
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -20,6 +23,21 @@ func NewClient() (*Client, error) {
 		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
 		if err != nil {
 			return nil, err
+		}
+	}
+
+	// Tune for higher concurrent load (50+ users)
+	config.QPS = 50.0  // Queries per second
+	config.Burst = 100 // Burst allowance for spike traffic
+
+	// Wrap the existing transport to configure connection pooling
+	// Don't replace config.Transport as it may have TLS settings
+	if config.WrapTransport != nil {
+		baseTransport := config.WrapTransport(http.DefaultTransport)
+		if httpTransport, ok := baseTransport.(*http.Transport); ok {
+			httpTransport.MaxIdleConns = 200
+			httpTransport.MaxIdleConnsPerHost = 50
+			httpTransport.IdleConnTimeout = 90 * time.Second
 		}
 	}
 
