@@ -1,6 +1,6 @@
 # 𖤓 Ajna - Kubernetes Quick Web-Based Dashboard
 
-**Ajna** (Sanskrit: अज्ञ, meaning "perception" or "third eye") is a fast, lightweight, read-only Kubernetes cluster monitoring and visualization tool. It provides SREs and developers with instant visibility into cluster health, resources, and deployment status through a beautiful web interface.
+**Ajna** is a fast, lightweight, read-only Kubernetes cluster monitoring and visualization tool. It provides SREs and developers with instant visibility into cluster health, resources, and deployment status through a beautiful web interface.
 
 ![Go Version](https://img.shields.io/badge/Go-1.21-00ADD8?logo=go)
 ![Kubernetes](https://img.shields.io/badge/Kubernetes-0.28-326CE5?logo=kubernetes)
