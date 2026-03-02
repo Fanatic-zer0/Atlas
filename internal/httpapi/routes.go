@@ -63,6 +63,9 @@ func SetupRoutes(application *app.App) *mux.Router {
 	r.HandleFunc("/api/cache/clear", clearCache(application)).Methods("POST")
 	r.HandleFunc("/api/cache/stats", getCacheStats(application)).Methods("GET")
 
+	// Export endpoints (CSV/JSON download)
+	r.HandleFunc("/api/export/{resource_type}/{namespace}", getExport(application)).Methods("GET")
+
 	return r
 }
 

@@ -138,6 +138,11 @@ Ajna automatically detects your Kubernetes configuration:
 - `GET /api/cache/stats` - Get cache statistics
 - `POST /api/cache/clear` - Clear cache
 
+### Export (CSV/JSON)
+- `GET /api/export/{resource_type}/{namespace}?format=csv|json` - Export resources as CSV or JSON (download)
+- Supported types: `pods`, `services`, `deployments`, `ingresses`, `configmaps`, `secrets`, `resources`, `pvpvc`, `health`
+- For cluster-scoped CRDs: `GET /api/export/crds/cluster?format=csv|json`
+
 ## 🔧 Development
 
 ### Project Structure

@@ -317,10 +317,16 @@
                     </div>
 
                     <!-- Health Tab -->
-                    <div id="health" class="tab-content hidden">`
-                        <div class="mb-6">
-                            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">Health Dashboard</h2>
-                            <p class="text-sm text-gray-600 dark:text-gray-400">Monitor cluster health and resource status</p>
+                    <div id="health" class="tab-content hidden">
+                        <div class="mb-6 flex items-center justify-between flex-wrap gap-2">
+                            <div>
+                                <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">Health Dashboard</h2>
+                                <p class="text-sm text-gray-600 dark:text-gray-400">Monitor cluster health and resource status</p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button onclick="exportResource('health', 'csv')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export CSV">CSV</button>
+                                <button onclick="exportResource('health', 'json')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export JSON">JSON</button>
+                            </div>
                         </div>
                         <div id="healthResults" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 border border-gray-200 dark:border-gray-700">
                             <div class="flex items-center justify-center py-12">
@@ -356,6 +362,8 @@
                         </div>
                         <div class="mb-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 border border-gray-200 dark:border-gray-700">
                             <div class="flex flex-wrap gap-4 items-center">
+                                <button onclick="exportResource('resources', 'csv')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export CSV">CSV</button>
+                                <button onclick="exportResource('resources', 'json')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export JSON">JSON</button>
                                 <button onclick="loadAllResources()" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors">
                                     <svg class="w-4 h-4 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
@@ -393,12 +401,16 @@
 
                     <!-- Pods Tab -->
                     <div id="pods" class="tab-content hidden">
-                        <div class="mb-6 flex items-center justify-between">
+                        <div class="mb-6 flex items-center justify-between flex-wrap gap-2">
                             <div>
                                 <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">Pods</h2>
                                 <p class="text-sm text-gray-600 dark:text-gray-400">Monitor pod health and status</p>
                             </div>
-                            <input type="text" id="podSearchFilter" placeholder="Search pods..." onkeyup="filterTable('pods')" class="px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            <div class="flex items-center gap-2">
+                                <button onclick="exportResource('pods', 'csv')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export CSV">CSV</button>
+                                <button onclick="exportResource('pods', 'json')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export JSON">JSON</button>
+                                <input type="text" id="podSearchFilter" placeholder="Search pods..." onkeyup="filterTable('pods')" class="px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            </div>
                         </div>
                         <div id="podsContent" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-x-auto">
                             <div class="flex items-center justify-center py-12">
@@ -412,12 +424,16 @@
 
                     <!-- Deployments Tab -->
                     <div id="deployments" class="tab-content hidden">
-                        <div class="mb-6 flex items-center justify-between">
+                        <div class="mb-6 flex items-center justify-between flex-wrap gap-2">
                             <div>
                                 <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">Deployments</h2>
                                 <p class="text-sm text-gray-600 dark:text-gray-400">Monitor deployment status and replica management</p>
                             </div>
-                            <input type="text" id="deploymentSearchFilter" placeholder="Search deployments..." onkeyup="filterTable('deployments')" class="px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            <div class="flex items-center gap-2">
+                                <button onclick="exportResource('deployments', 'csv')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export CSV">CSV</button>
+                                <button onclick="exportResource('deployments', 'json')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export JSON">JSON</button>
+                                <input type="text" id="deploymentSearchFilter" placeholder="Search deployments..." onkeyup="filterTable('deployments')" class="px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            </div>
                         </div>
                         <div id="deploymentsContent" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-x-auto">
                             <div class="flex items-center justify-center py-12">
@@ -431,12 +447,16 @@
 
                     <!-- Services Tab -->
                     <div id="services" class="tab-content hidden">
-                        <div class="mb-6 flex items-center justify-between">
+                        <div class="mb-6 flex items-center justify-between flex-wrap gap-2">
                             <div>
                                 <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">Services</h2>
                                 <p class="text-sm text-gray-600 dark:text-gray-400">View and manage service endpoints and networking</p>
                             </div>
-                            <input type="text" id="serviceSearchFilter" placeholder="Search services..." onkeyup="filterTable('services')" class="px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            <div class="flex items-center gap-2">
+                                <button onclick="exportResource('services', 'csv')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export CSV">CSV</button>
+                                <button onclick="exportResource('services', 'json')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export JSON">JSON</button>
+                                <input type="text" id="serviceSearchFilter" placeholder="Search services..." onkeyup="filterTable('services')" class="px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            </div>
                         </div>
                         <div id="servicesContent" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-x-auto">
                             <div class="flex items-center justify-center py-12">
@@ -450,12 +470,16 @@
 
                     <!-- Ingresses Tab -->
                     <div id="ingresses" class="tab-content hidden">
-                        <div class="mb-6 flex items-center justify-between">
+                        <div class="mb-6 flex items-center justify-between flex-wrap gap-2">
                             <div>
                                 <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">Ingresses</h2>
                                 <p class="text-sm text-gray-600 dark:text-gray-400">Manage and test your ingress rules and routing</p>
                             </div>
-                            <input type="text" id="ingressSearchFilter" placeholder="Search ingresses..." onkeyup="filterTable('ingresses')" class="px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            <div class="flex items-center gap-2">
+                                <button onclick="exportResource('ingresses', 'csv')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export CSV">CSV</button>
+                                <button onclick="exportResource('ingresses', 'json')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export JSON">JSON</button>
+                                <input type="text" id="ingressSearchFilter" placeholder="Search ingresses..." onkeyup="filterTable('ingresses')" class="px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            </div>
                         </div>
                         <div id="ingressesContent" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-x-auto">
                             <div class="flex items-center justify-center py-12">
@@ -469,12 +493,16 @@
 
                     <!-- ConfigMaps Tab -->
                     <div id="configmaps" class="tab-content hidden">
-                        <div class="mb-6 flex items-center justify-between">
+                        <div class="mb-6 flex items-center justify-between flex-wrap gap-2">
                             <div>
                                 <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">ConfigMaps</h2>
                                 <p class="text-sm text-gray-600 dark:text-gray-400">Manage configuration data for your applications</p>
                             </div>
-                            <input type="text" id="configmapSearchFilter" placeholder="Search configmaps..." onkeyup="filterTable('configmaps')" class="px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            <div class="flex items-center gap-2">
+                                <button onclick="exportResource('configmaps', 'csv')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export CSV">CSV</button>
+                                <button onclick="exportResource('configmaps', 'json')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export JSON">JSON</button>
+                                <input type="text" id="configmapSearchFilter" placeholder="Search configmaps..." onkeyup="filterTable('configmaps')" class="px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            </div>
                         </div>
                         <div id="configmapsContent" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-x-auto">
                             <div class="flex items-center justify-center py-12">
@@ -488,12 +516,16 @@
 
                     <!-- Secrets Tab -->
                     <div id="secrets" class="tab-content hidden">
-                        <div class="mb-6 flex items-center justify-between">
+                        <div class="mb-6 flex items-center justify-between flex-wrap gap-2">
                             <div>
                                 <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">Secrets</h2>
                                 <p class="text-sm text-gray-600 dark:text-gray-400">Manage sensitive data and credentials securely</p>
                             </div>
-                            <input type="text" id="secretSearchFilter" placeholder="Search secrets..." onkeyup="filterTable('secrets')" class="px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            <div class="flex items-center gap-2">
+                                <button onclick="exportResource('secrets', 'csv')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export CSV">CSV</button>
+                                <button onclick="exportResource('secrets', 'json')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export JSON">JSON</button>
+                                <input type="text" id="secretSearchFilter" placeholder="Search secrets..." onkeyup="filterTable('secrets')" class="px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            </div>
                         </div>
                         <div id="secretsContent" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-x-auto">
                             <div class="flex items-center justify-center py-12">
@@ -507,9 +539,15 @@
 
                     <!-- PV/PVC Tab -->
                     <div id="pvpvc" class="tab-content hidden">
-                        <div class="mb-6">
-                            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">Persistent Volumes</h2>
-                            <p class="text-sm text-gray-600 dark:text-gray-400">View persistent volumes and claims</p>
+                        <div class="mb-6 flex items-center justify-between flex-wrap gap-2">
+                            <div>
+                                <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">Persistent Volumes</h2>
+                                <p class="text-sm text-gray-600 dark:text-gray-400">View persistent volumes and claims</p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button onclick="exportResource('pvpvc', 'csv')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export CSV">CSV</button>
+                                <button onclick="exportResource('pvpvc', 'json')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export JSON">JSON</button>
+                            </div>
                         </div>
                         <div id="pvpvcContent" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-x-auto">
                             <div class="flex items-center justify-center py-12">
@@ -523,12 +561,16 @@
 
                     <!-- CRDs Tab -->
                     <div id="crds" class="tab-content hidden">
-                        <div class="mb-6 flex items-center justify-between">
+                        <div class="mb-6 flex items-center justify-between flex-wrap gap-2">
                             <div>
                                 <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">Custom Resource Definitions</h2>
                                 <p class="text-sm text-gray-600 dark:text-gray-400">View and manage CRDs in your cluster</p>
                             </div>
-                            <input type="text" id="crdSearchFilter" placeholder="Search CRDs..." onkeyup="filterTable('crds')" class="px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            <div class="flex items-center gap-2">
+                                <button onclick="exportResource('crds', 'csv')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export CSV">CSV</button>
+                                <button onclick="exportResource('crds', 'json')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export JSON">JSON</button>
+                                <input type="text" id="crdSearchFilter" placeholder="Search CRDs..." onkeyup="filterTable('crds')" class="px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            </div>
                         </div>
                         <div id="crdsContent" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-x-auto">
                             <div class="flex items-center justify-center py-12">

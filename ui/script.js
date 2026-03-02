@@ -69,6 +69,22 @@ function loadSidebarState() {
 }
 
 /* ============================================
+   EXPORT (CSV/JSON)
+   ============================================ */
+
+function exportResource(resourceType, format) {
+    const ns = resourceType === 'crds' ? 'cluster' : currentNamespace;
+    const url = `/api/export/${resourceType}/${encodeURIComponent(ns)}?format=${format}`;
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '';
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
+/* ============================================
    TAB NAVIGATION
    ============================================ */
 
