@@ -10,9 +10,9 @@ import (
 	"syscall"
 	"time"
 
-	"ajna/internal/app"
-	"ajna/internal/httpapi"
-	"ajna/internal/k8s"
+	"atlas/internal/app"
+	"atlas/internal/httpapi"
+	"atlas/internal/k8s"
 )
 
 func main() {

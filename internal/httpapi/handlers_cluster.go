@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"ajna/internal/app"
+	"atlas/internal/app"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd"

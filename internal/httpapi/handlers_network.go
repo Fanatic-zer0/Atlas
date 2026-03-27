@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"ajna/internal/app"
-	"ajna/internal/network"
+	"atlas/internal/app"
+	"atlas/internal/network"
 )
 
 // testNetwork handles network connectivity testing

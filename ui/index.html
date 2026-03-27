@@ -1,607 +1,389 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ajna - Kubernetes Dashboard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>ATLAS — Kubernetes Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="/static/styles.css">
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        primary: {
-                            50: '#eff6ff',
-                            100: '#dbeafe',
-                            200: '#bfdbfe',
-                            300: '#93c5fd',
-                            400: '#60a5fa',
-                            500: '#3b82f6',
-                            600: '#2563eb',
-                            700: '#1d4ed8',
-                            800: '#1e40af',
-                            900: '#1e3a8a',
-                        }
-                    }
-                }
-            }
-        }
-    </script>
 </head>
-<body class="bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
-    <div class="flex h-screen overflow-hidden">
-        <!-- Sidebar -->
-        <aside id="mobileSidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transition-transform duration-300 lg:translate-x-0 -translate-x-full">
-            <div class="flex flex-col h-full">
-                <!-- Logo -->
-                <div class="flex items-center justify-between h-16 px-6 border-b border-gray-200 dark:border-gray-700">
-                    <div class="flex items-center space-x-3">
-                        <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                            <span class="text-white font-bold text-lg">A</span>
-                        </div>
-                        <span class="text-xl font-bold text-gray-900 dark:text-white">Ajna</span>
-                    </div>
-                    <button onclick="toggleMobileSidebar()" class="lg:hidden text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
-                </div>
+<body>
 
-                <!-- Navigation -->
-                <nav class="flex-1 overflow-y-auto py-4 px-3">
-                    <div class="space-y-1">
-                        <!-- Dashboard Section -->
-                        <div class="px-3 mb-2">
-                            <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Dashboard</h3>
-                        </div>
-                        <a href="#" data-tab="overview" onclick="selectTab(event, 'overview')" class="nav-item active flex items-center px-3 py-2 text-sm font-medium rounded-lg text-white bg-primary-600 dark:bg-primary-500">
-                            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
-                            </svg>
-                            Overview
-                        </a>
-                        <a href="#" data-tab="health" onclick="selectTab(event, 'health')" class="nav-item flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700">
-                            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                            Health
-                        </a>
-                        <a href="#" data-tab="cluster" onclick="selectTab(event, 'cluster')" class="nav-item flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
-                            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"></path>
-                            </svg>
-                            Cluster
-                        </a>
-                        <a href="#" data-tab="resourceViewer" onclick="selectTab(event, 'resourceViewer')" class="nav-item flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
-                            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path>
-                            </svg>
-                            Resources
-                        </a>
+<div class="app-shell">
 
-                        <!-- Kubernetes Section -->
-                        <div class="px-3 mt-6 mb-2">
-                            <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Kubernetes</h3>
-                        </div>
-                        <a href="#" data-tab="pods" onclick="selectTab(event, 'pods')" class="nav-item flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
-                            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
-                            </svg>
-                            Pods
-                        </a>
-                        <a href="#" data-tab="deployments" onclick="selectTab(event, 'deployments')" class="nav-item flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
-                            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
-                            </svg>
-                            Deployments
-                        </a>
-                        <a href="#" data-tab="services" onclick="selectTab(event, 'services')" class="nav-item flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
-                            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                            </svg>
-                            Services
-                        </a>
-                        <a href="#" data-tab="ingresses" onclick="selectTab(event, 'ingresses')" class="nav-item flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
-                            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
-                            </svg>
-                            Ingresses
-                        </a>
+  <!-- ══════════════════════ SIDEBAR ══════════════════════ -->
+  <aside class="sidebar" id="mobileSidebar">
 
-                        <!-- Configuration Section -->
-                        <div class="px-3 mt-6 mb-2">
-                            <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Configuration</h3>
-                        </div>
-                        <a href="#" data-tab="configmaps" onclick="selectTab(event, 'configmaps')" class="nav-item flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
-                            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                            </svg>
-                            ConfigMaps
-                        </a>
-                        <a href="#" data-tab="secrets" onclick="selectTab(event, 'secrets')" class="nav-item flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
-                            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
-                            </svg>
-                            Secrets
-                        </a>
-
-                        <!-- Storage Section -->
-                        <div class="px-3 mt-6 mb-2">
-                            <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Storage & More</h3>
-                        </div>
-                        <a href="#" data-tab="pvpvc" onclick="selectTab(event, 'pvpvc')" class="nav-item flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
-                            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"></path>
-                            </svg>
-                            PV/PVC
-                        </a>
-                        <a href="#" data-tab="crds" onclick="selectTab(event, 'crds')" class="nav-item flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
-                            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                            </svg>
-                            CRDs
-                        </a>
-                        <a href="#" data-tab="releases" onclick="selectTab(event, 'releases')" class="nav-item flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
-                            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
-                            </svg>
-                            Releases
-                        </a>
-                    </div>
-                </nav>
-
-                <!-- Sidebar Footer -->
-                <div class="p-4 border-t border-gray-200 dark:border-gray-700">
-                    <div class="flex items-center justify-between">
-                        <button onclick="toggleTheme()" class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700" title="Toggle theme">
-                            <svg id="themeIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
-                            </svg>
-                        </button>
-                        <button onclick="clearCache()" class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700" title="Clear cache">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                            </svg>
-                        </button>
-                        <button onclick="refreshCurrentTab()" class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700" title="Refresh">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </aside>
-
-        <!-- Main Content -->
-        <div class="flex-1 flex flex-col lg:ml-64">
-            <!-- Top Header -->
-            <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 z-10">
-                <div class="px-4 py-4 sm:px-6 lg:px-8">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center space-x-4">
-                            <button onclick="toggleMobileSidebar()" class="lg:hidden text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
-                                </svg>
-                            </button>
-                            <div>
-                                <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Kubernetes Dashboard</h1>
-                                <p class="text-sm text-gray-500 dark:text-gray-400" id="clusterInfo">Loading cluster info...</p>
-                            </div>
-                        </div>
-                        <div class="flex items-center space-x-3">
-                            <div class="relative">
-                                <label class="text-sm text-gray-700 dark:text-gray-300 mr-2">Namespace:</label>
-                                <select id="namespaceSelect" onchange="changeNamespace()" class="px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                                    <option value="default">default</option>
-                                </select>
-                            </div>
-                            <span id="cacheStats" class="text-xs text-gray-500 dark:text-gray-400"></span>
-                        </div>
-                    </div>
-                </div>
-            </header>
-
-            <!-- Main Content Area -->
-            <main class="flex-1 overflow-y-auto bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-                <div class="px-4 py-6 sm:px-6 lg:px-8">
-                    <!-- Overview Tab -->
-                    <div id="overview" class="tab-content">`
-                        <div class="mb-6">
-                            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">Overview</h2>
-                            <p class="text-sm text-gray-600 dark:text-gray-400">Welcome to your Kubernetes cluster dashboard</p>
-                        </div>
-
-                        <!-- Stats Cards -->
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-                            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all duration-300 hover:scale-105">
-                                <div class="flex items-center justify-between">
-                                    <div>
-                                        <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Total Pods</p>
-                                        <p class="text-3xl font-bold text-gray-900 dark:text-white mt-2" id="statTotalPods">-</p>
-                                    </div>
-                                    <div class="p-3 bg-blue-100 dark:bg-blue-900 rounded-lg">
-                                        <svg class="w-8 h-8 text-blue-600 dark:text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
-                                        </svg>
-                                    </div>
-                                </div>
-                                <div class="mt-4 flex items-center">
-                                    <span class="text-green-600 dark:text-green-400 text-sm font-medium" id="statPodsRunning">0 running</span>
-                                </div>
-                            </div>
-
-                            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all duration-300 hover:scale-105">
-                                <div class="flex items-center justify-between">
-                                    <div>
-                                        <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Deployments</p>
-                                        <p class="text-3xl font-bold text-gray-900 dark:text-white mt-2" id="statDeployments">-</p>
-                                    </div>
-                                    <div class="p-3 bg-purple-100 dark:bg-purple-900 rounded-lg">
-                                        <svg class="w-8 h-8 text-purple-600 dark:text-purple-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
-                                        </svg>
-                                    </div>
-                                </div>
-                                <div class="mt-4 flex items-center">
-                                    <span class="text-green-600 dark:text-green-400 text-sm font-medium" id="statDeploymentsReady">0 ready</span>
-                                </div>
-                            </div>
-
-                            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all duration-300 hover:scale-105">
-                                <div class="flex items-center justify-between">
-                                    <div>
-                                        <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Services</p>
-                                        <p class="text-3xl font-bold text-gray-900 dark:text-white mt-2" id="statServices">-</p>
-                                    </div>
-                                    <div class="p-3 bg-green-100 dark:bg-green-900 rounded-lg">
-                                        <svg class="w-8 h-8 text-green-600 dark:text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                                        </svg>
-                                    </div>
-                                </div>
-                                <div class="mt-4 flex items-center">
-                                    <span class="text-blue-600 dark:text-blue-400 text-sm font-medium" id="statServicesType">-</span>
-                                </div>
-                            </div>
-
-                            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all duration-300 hover:scale-105">
-                                <div class="flex items-center justify-between">
-                                    <div>
-                                        <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Cluster Health</p>
-                                        <p class="text-3xl font-bold text-gray-900 dark:text-white mt-2" id="statHealthScore">-</p>
-                                    </div>
-                                    <div class="p-3 bg-yellow-100 dark:bg-yellow-900 rounded-lg">
-                                        <svg class="w-8 h-8 text-yellow-600 dark:text-yellow-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                        </svg>
-                                    </div>
-                                </div>
-                                <div class="mt-4 flex items-center">
-                                    <span class="text-sm font-medium" id="statHealthStatus">Checking...</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Cluster Information & Health Details -->
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-                                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-                                    <svg class="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2"></path>
-                                    </svg>
-                                    Cluster Information
-                                </h3>
-                                <div id="clusterDetails" class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                                    <p>Loading cluster details...</p>
-                                </div>
-                            </div>
-                            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-                                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-                                    <svg class="w-5 h-5 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                    </svg>
-                                    Health Details
-                                </h3>
-                                <div id="overviewHealthDetails" class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                                    <p>Loading health details...</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Health Tab -->
-                    <div id="health" class="tab-content hidden">
-                        <div class="mb-6 flex items-center justify-between flex-wrap gap-2">
-                            <div>
-                                <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">Health Dashboard</h2>
-                                <p class="text-sm text-gray-600 dark:text-gray-400">Monitor cluster health and resource status</p>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <button onclick="exportResource('health', 'csv')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export CSV">CSV</button>
-                                <button onclick="exportResource('health', 'json')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export JSON">JSON</button>
-                            </div>
-                        </div>
-                        <div id="healthResults" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 border border-gray-200 dark:border-gray-700">
-                            <div class="flex items-center justify-center py-12">
-                                <div class="text-center">
-                                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-                                    <p class="mt-4 text-gray-600 dark:text-gray-400">Loading health data...</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Cluster Tab -->
-                    <div id="cluster" class="tab-content hidden">
-                        <div class="mb-6">
-                            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">Cluster Nodes</h2>
-                            <p class="text-sm text-gray-600 dark:text-gray-400">Detailed node information and configuration</p>
-                        </div>
-                        <div id="clusterResults" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 border border-gray-200 dark:border-gray-700">
-                            <div class="flex items-center justify-center py-12">
-                                <div class="text-center">
-                                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-                                    <p class="mt-4 text-gray-600 dark:text-gray-400">Loading cluster nodes...</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Resource Viewer Tab -->
-                    <div id="resourceViewer" class="tab-content hidden">
-                        <div class="mb-6">
-                            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">Resource Explorer</h2>
-                            <p class="text-sm text-gray-600 dark:text-gray-400">Browse and explore your Kubernetes resources with visual cards</p>
-                        </div>
-                        <div class="mb-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 border border-gray-200 dark:border-gray-700">
-                            <div class="flex flex-wrap gap-4 items-center">
-                                <button onclick="exportResource('resources', 'csv')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export CSV">CSV</button>
-                                <button onclick="exportResource('resources', 'json')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export JSON">JSON</button>
-                                <button onclick="loadAllResources()" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors">
-                                    <svg class="w-4 h-4 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                                    </svg>
-                                    Refresh
-                                </button>
-                                <div class="flex items-center gap-2">
-                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Type:</label>
-                                    <select id="resourceTypeFilter" onchange="loadAllResources()" class="px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                                        <option value="all">All Resources</option>
-                                        <option value="Ingress">Ingresses</option>
-                                        <option value="Service">Services</option>
-                                        <option value="Deployment">Deployments</option>
-                                        <option value="Pod">Pods</option>
-                                        <option value="StatefulSet">StatefulSets</option>
-                                        <option value="DaemonSet">DaemonSets</option>
-                                        <option value="Job">Jobs</option>
-                                        <option value="CronJob">CronJobs</option>
-                                    </select>
-                                </div>
-                                <input type="text" id="resourceSearchFilter" placeholder="Search resources..." onkeyup="filterResources()" class="flex-1 min-w-[200px] px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                            </div>
-                        </div>
-                        <div id="resourceList" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 border border-gray-200 dark:border-gray-700">
-                            <div class="text-center py-12 text-gray-600 dark:text-gray-400">
-                                <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path>
-                                </svg>
-                                <h3 class="text-lg font-semibold mb-2">Select a resource type above</h3>
-                                <p>Optimized for large clusters with 10k+ resources</p>
-                            </div>
-                        </div>
-                        <div id="resourceDetails" class="resource-details-panel"></div>
-                    </div>
-
-                    <!-- Pods Tab -->
-                    <div id="pods" class="tab-content hidden">
-                        <div class="mb-6 flex items-center justify-between flex-wrap gap-2">
-                            <div>
-                                <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">Pods</h2>
-                                <p class="text-sm text-gray-600 dark:text-gray-400">Monitor pod health and status</p>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <button onclick="exportResource('pods', 'csv')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export CSV">CSV</button>
-                                <button onclick="exportResource('pods', 'json')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export JSON">JSON</button>
-                                <input type="text" id="podSearchFilter" placeholder="Search pods..." onkeyup="filterTable('pods')" class="px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                            </div>
-                        </div>
-                        <div id="podsContent" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-x-auto">
-                            <div class="flex items-center justify-center py-12">
-                                <div class="text-center">
-                                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-                                    <p class="mt-4 text-gray-600 dark:text-gray-400">Loading pods...</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Deployments Tab -->
-                    <div id="deployments" class="tab-content hidden">
-                        <div class="mb-6 flex items-center justify-between flex-wrap gap-2">
-                            <div>
-                                <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">Deployments</h2>
-                                <p class="text-sm text-gray-600 dark:text-gray-400">Monitor deployment status and replica management</p>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <button onclick="exportResource('deployments', 'csv')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export CSV">CSV</button>
-                                <button onclick="exportResource('deployments', 'json')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export JSON">JSON</button>
-                                <input type="text" id="deploymentSearchFilter" placeholder="Search deployments..." onkeyup="filterTable('deployments')" class="px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                            </div>
-                        </div>
-                        <div id="deploymentsContent" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-x-auto">
-                            <div class="flex items-center justify-center py-12">
-                                <div class="text-center">
-                                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-                                    <p class="mt-4 text-gray-600 dark:text-gray-400">Loading deployments...</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Services Tab -->
-                    <div id="services" class="tab-content hidden">
-                        <div class="mb-6 flex items-center justify-between flex-wrap gap-2">
-                            <div>
-                                <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">Services</h2>
-                                <p class="text-sm text-gray-600 dark:text-gray-400">View and manage service endpoints and networking</p>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <button onclick="exportResource('services', 'csv')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export CSV">CSV</button>
-                                <button onclick="exportResource('services', 'json')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export JSON">JSON</button>
-                                <input type="text" id="serviceSearchFilter" placeholder="Search services..." onkeyup="filterTable('services')" class="px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                            </div>
-                        </div>
-                        <div id="servicesContent" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-x-auto">
-                            <div class="flex items-center justify-center py-12">
-                                <div class="text-center">
-                                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-                                    <p class="mt-4 text-gray-600 dark:text-gray-400">Loading services...</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Ingresses Tab -->
-                    <div id="ingresses" class="tab-content hidden">
-                        <div class="mb-6 flex items-center justify-between flex-wrap gap-2">
-                            <div>
-                                <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">Ingresses</h2>
-                                <p class="text-sm text-gray-600 dark:text-gray-400">Manage and test your ingress rules and routing</p>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <button onclick="exportResource('ingresses', 'csv')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export CSV">CSV</button>
-                                <button onclick="exportResource('ingresses', 'json')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export JSON">JSON</button>
-                                <input type="text" id="ingressSearchFilter" placeholder="Search ingresses..." onkeyup="filterTable('ingresses')" class="px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                            </div>
-                        </div>
-                        <div id="ingressesContent" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-x-auto">
-                            <div class="flex items-center justify-center py-12">
-                                <div class="text-center">
-                                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-                                    <p class="mt-4 text-gray-600 dark:text-gray-400">Loading ingresses...</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- ConfigMaps Tab -->
-                    <div id="configmaps" class="tab-content hidden">
-                        <div class="mb-6 flex items-center justify-between flex-wrap gap-2">
-                            <div>
-                                <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">ConfigMaps</h2>
-                                <p class="text-sm text-gray-600 dark:text-gray-400">Manage configuration data for your applications</p>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <button onclick="exportResource('configmaps', 'csv')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export CSV">CSV</button>
-                                <button onclick="exportResource('configmaps', 'json')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export JSON">JSON</button>
-                                <input type="text" id="configmapSearchFilter" placeholder="Search configmaps..." onkeyup="filterTable('configmaps')" class="px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                            </div>
-                        </div>
-                        <div id="configmapsContent" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-x-auto">
-                            <div class="flex items-center justify-center py-12">
-                                <div class="text-center">
-                                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-                                    <p class="mt-4 text-gray-600 dark:text-gray-400">Loading configmaps...</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Secrets Tab -->
-                    <div id="secrets" class="tab-content hidden">
-                        <div class="mb-6 flex items-center justify-between flex-wrap gap-2">
-                            <div>
-                                <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">Secrets</h2>
-                                <p class="text-sm text-gray-600 dark:text-gray-400">Manage sensitive data and credentials securely</p>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <button onclick="exportResource('secrets', 'csv')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export CSV">CSV</button>
-                                <button onclick="exportResource('secrets', 'json')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export JSON">JSON</button>
-                                <input type="text" id="secretSearchFilter" placeholder="Search secrets..." onkeyup="filterTable('secrets')" class="px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                            </div>
-                        </div>
-                        <div id="secretsContent" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-x-auto">
-                            <div class="flex items-center justify-center py-12">
-                                <div class="text-center">
-                                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-                                    <p class="mt-4 text-gray-600 dark:text-gray-400">Loading secrets...</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- PV/PVC Tab -->
-                    <div id="pvpvc" class="tab-content hidden">
-                        <div class="mb-6 flex items-center justify-between flex-wrap gap-2">
-                            <div>
-                                <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">Persistent Volumes</h2>
-                                <p class="text-sm text-gray-600 dark:text-gray-400">View persistent volumes and claims</p>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <button onclick="exportResource('pvpvc', 'csv')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export CSV">CSV</button>
-                                <button onclick="exportResource('pvpvc', 'json')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export JSON">JSON</button>
-                            </div>
-                        </div>
-                        <div id="pvpvcContent" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-x-auto">
-                            <div class="flex items-center justify-center py-12">
-                                <div class="text-center">
-                                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-                                    <p class="mt-4 text-gray-600 dark:text-gray-400">Loading PV/PVC...</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- CRDs Tab -->
-                    <div id="crds" class="tab-content hidden">
-                        <div class="mb-6 flex items-center justify-between flex-wrap gap-2">
-                            <div>
-                                <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">Custom Resource Definitions</h2>
-                                <p class="text-sm text-gray-600 dark:text-gray-400">View and manage CRDs in your cluster</p>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <button onclick="exportResource('crds', 'csv')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export CSV">CSV</button>
-                                <button onclick="exportResource('crds', 'json')" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg text-gray-700 dark:text-gray-200" title="Export JSON">JSON</button>
-                                <input type="text" id="crdSearchFilter" placeholder="Search CRDs..." onkeyup="filterTable('crds')" class="px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                            </div>
-                        </div>
-                        <div id="crdsContent" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-x-auto">
-                            <div class="flex items-center justify-center py-12">
-                                <div class="text-center">
-                                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-                                    <p class="mt-4 text-gray-600 dark:text-gray-400">Loading CRDs...</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Releases Tab -->
-                    <div id="releases" class="tab-content hidden">
-                        <div class="mb-6">
-                            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">Releases</h2>
-                            <p class="text-sm text-gray-600 dark:text-gray-400">View Helm releases and deployments</p>
-                        </div>
-                        <div id="releasesResults" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-x-auto">
-                            <div class="flex items-center justify-center py-12">
-                                <div class="text-center">
-                                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-                                    <p class="mt-4 text-gray-600 dark:text-gray-400">Loading releases...</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </main>
-        </div>
+    <div class="sidebar-brand">
+      <div class="sidebar-logo">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/><line x1="12" y1="2" x2="12" y2="22"/><path d="M2 8.5l10 7 10-7"/></svg>
+      </div>
+      <span class="sidebar-title">ATLAS</span>
+      <button class="sidebar-close-btn" onclick="toggleMobileSidebar()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
     </div>
 
-    <script src="/static/script.js"></script>
+    <nav class="sidebar-nav">
+
+      <div class="nav-section-label">Overview</div>
+      <a href="#" class="nav-item active" data-tab="overview" onclick="selectTab(event, 'overview')">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span>Dashboard</span>
+      </a>
+      <a href="#" class="nav-item" data-tab="health" onclick="selectTab(event, 'health')">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        <span>Health</span>
+      </a>
+      <a href="#" class="nav-item" data-tab="cluster" onclick="selectTab(event, 'cluster')">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/><path d="M4.93 4.93l2.12 2.12m9.9 9.9l2.12 2.12M4.93 19.07l2.12-2.12m9.9-9.9l2.12-2.12"/></svg>
+        <span>Cluster</span>
+      </a>
+      <a href="#" class="nav-item" data-tab="resourceViewer" onclick="selectTab(event, 'resourceViewer')">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <span>Explorer</span>
+      </a>
+
+      <div class="nav-section-label">Workloads</div>
+      <a href="#" class="nav-item" data-tab="pods" onclick="selectTab(event, 'pods')">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        <span>Pods</span>
+      </a>
+      <a href="#" class="nav-item" data-tab="deployments" onclick="selectTab(event, 'deployments')">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
+        <span>Deployments</span>
+      </a>
+      <a href="#" class="nav-item" data-tab="services" onclick="selectTab(event, 'services')">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        <span>Services</span>
+      </a>
+      <a href="#" class="nav-item" data-tab="ingresses" onclick="selectTab(event, 'ingresses')">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+        <span>Ingresses</span>
+      </a>
+      <a href="#" class="nav-item" data-tab="cronjobs" onclick="selectTab(event, 'cronjobs')">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span>CronJobs / Jobs</span>
+      </a>
+
+      <div class="nav-section-label">Configuration</div>
+      <a href="#" class="nav-item" data-tab="configmaps" onclick="selectTab(event, 'configmaps')">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <span>ConfigMaps</span>
+      </a>
+      <a href="#" class="nav-item" data-tab="secrets" onclick="selectTab(event, 'secrets')">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+        <span>Secrets</span>
+      </a>
+
+      <div class="nav-section-label">Storage &amp; More</div>
+      <a href="#" class="nav-item" data-tab="pvpvc" onclick="selectTab(event, 'pvpvc')">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+        <span>PV / PVC</span>
+      </a>
+      <a href="#" class="nav-item" data-tab="crds" onclick="selectTab(event, 'crds')">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>
+        <span>CRDs</span>
+      </a>
+      <a href="#" class="nav-item" data-tab="releases" onclick="selectTab(event, 'releases')">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        <span>Releases</span>
+      </a>
+
+    </nav>
+
+    <div class="sidebar-footer">
+      <button class="footer-btn" onclick="toggleTheme()" title="Toggle theme">
+        <svg id="themeIcon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+      </button>
+      <button class="footer-btn" onclick="clearCache()" title="Clear cache">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+      </button>
+      <button class="footer-btn" onclick="refreshCurrentTab()" title="Refresh">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15A9 9 0 1118 5.35L23 10"/></svg>
+      </button>
+    </div>
+
+  </aside>
+
+  <!-- ══════════════════════ MAIN AREA ══════════════════════ -->
+  <div class="main-area">
+
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="hamburger-btn" onclick="toggleMobileSidebar()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div class="topbar-context">
+          <span class="topbar-page-title" id="currentTabTitle">Dashboard</span>
+          <span class="topbar-cluster-info" id="clusterInfo">
+            <svg width="9" height="9" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" fill="currentColor"/></svg>
+            Loading&hellip;
+          </span>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="ns-selector-wrap">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+          <select id="namespaceSelect" onchange="changeNamespace()" class="ns-select">
+            <option value="default">default</option>
+          </select>
+        </div>
+        <span id="cacheStats" class="cache-stats-badge"></span>
+      </div>
+    </header>
+
+    <!-- Content Pane -->
+    <main class="content-pane">
+
+      <!-- ══ OVERVIEW ══ -->
+      <div id="overview" class="tab-content">
+        <div class="page-header">
+          <h2 class="page-title">Dashboard</h2>
+          <p class="page-subtitle">Cluster overview and resource summary</p>
+        </div>
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="stat-card-icon stat-icon-blue">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+            </div>
+            <div class="stat-card-body">
+              <div class="stat-card-value" id="statTotalPods">&mdash;</div>
+              <div class="stat-card-label">Total Pods</div>
+              <div class="stat-card-sub" id="statPodsRunning">loading&hellip;</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon stat-icon-purple">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>
+            </div>
+            <div class="stat-card-body">
+              <div class="stat-card-value" id="statDeployments">&mdash;</div>
+              <div class="stat-card-label">Deployments</div>
+              <div class="stat-card-sub" id="statDeploymentsReady">loading&hellip;</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon stat-icon-green">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            </div>
+            <div class="stat-card-body">
+              <div class="stat-card-value" id="statServices">&mdash;</div>
+              <div class="stat-card-label">Services</div>
+              <div class="stat-card-sub" id="statServicesType">loading&hellip;</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon stat-icon-amber">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            </div>
+            <div class="stat-card-body">
+              <div class="stat-card-value" id="statHealthScore">&mdash;</div>
+              <div class="stat-card-label">Health Score</div>
+              <div class="stat-card-sub" id="statHealthStatus">loading&hellip;</div>
+            </div>
+          </div>
+        </div>
+        <div class="overview-grid">
+          <div class="panel">
+            <div class="panel-header">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/></svg>
+              Cluster Information
+            </div>
+            <div class="panel-body" id="clusterDetails"><span class="muted-text">Loading&hellip;</span></div>
+          </div>
+          <div class="panel">
+            <div class="panel-header">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+              Health Summary
+            </div>
+            <div class="panel-body" id="overviewHealthDetails"><span class="muted-text">Loading&hellip;</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ HEALTH ══ -->
+      <div id="health" class="tab-content hidden">
+        <div class="page-header">
+          <h2 class="page-title">Health Dashboard</h2>
+          <p class="page-subtitle">Monitor cluster health and resource status</p>
+        </div>
+        <div id="healthResults">
+          <div class="loading-state"><div class="spinner"></div><span>Analyzing cluster health&hellip;</span></div>
+        </div>
+      </div>
+
+      <!-- ══ CLUSTER ══ -->
+      <div id="cluster" class="tab-content hidden">
+        <div class="page-header">
+          <h2 class="page-title">Cluster Nodes</h2>
+          <p class="page-subtitle">Node details, resources and conditions</p>
+        </div>
+        <div class="resource-controls"><div class="controls-left"></div><div class="controls-right"></div></div>
+        <div id="clusterResults" class="panel">
+          <div class="loading-state"><div class="spinner"></div><span>Loading cluster nodes&hellip;</span></div>
+        </div>
+        <div id="clusterDetails" class="resource-details-panel"></div>
+      </div>
+
+      <!-- ══ RESOURCE EXPLORER ══ -->
+      <div id="resourceViewer" class="tab-content hidden">
+        <div class="page-header">
+          <h2 class="page-title">Resource Explorer</h2>
+          <p class="page-subtitle">Browse all Kubernetes resources with detail panels</p>
+        </div>
+        <div class="resource-controls">
+          <div class="controls-left">
+            <button onclick="loadAllResources()" class="btn-primary-sm">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15A9 9 0 1118 5.35L23 10"/></svg>
+              Refresh
+            </button>
+            <select id="resourceTypeFilter" onchange="loadAllResources()" class="select-sm">
+              <option value="all">All Resources</option>
+              <option value="Ingress">Ingresses</option>
+              <option value="Service">Services</option>
+              <option value="Deployment">Deployments</option>
+              <option value="Pod">Pods</option>
+              <option value="StatefulSet">StatefulSets</option>
+              <option value="DaemonSet">DaemonSets</option>
+              <option value="Job">Jobs</option>
+              <option value="CronJob">CronJobs</option>
+            </select>
+          </div>
+          <div class="controls-right">
+            <input type="text" id="resourceSearchFilter" placeholder="Search resources&hellip;" onkeyup="filterResources()" class="search-box">
+          </div>
+        </div>
+        <div id="resourceList" class="panel">
+          <div class="empty-state">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <p>Select a resource type above to begin</p>
+          </div>
+        </div>
+        <div id="resourceDetails" class="resource-details-panel"></div>
+      </div>
+
+      <!-- ══ PODS ══ -->
+      <div id="pods" class="tab-content hidden">
+        <div class="page-header-row">
+          <div><h2 class="page-title">Pods</h2><p class="page-subtitle">Pod health and lifecycle status</p></div>
+          <input type="text" id="podSearchFilter" placeholder="Search pods&hellip;" onkeyup="filterTable('pods')" class="search-box">
+        </div>
+        <div class="resource-controls"><div class="controls-left"></div><div class="controls-right"></div></div>
+        <div id="podsContent" class="panel">
+          <div class="loading-state"><div class="spinner"></div><span>Loading pods&hellip;</span></div>
+        </div>
+        <div id="podsDetails" class="resource-details-panel"></div>
+      </div>
+
+      <!-- ══ DEPLOYMENTS ══ -->
+      <div id="deployments" class="tab-content hidden">
+        <div class="page-header-row">
+          <div><h2 class="page-title">Deployments</h2><p class="page-subtitle">Replica status and rollout management</p></div>
+          <input type="text" id="deploymentSearchFilter" placeholder="Search deployments&hellip;" onkeyup="filterTable('deployments')" class="search-box">
+        </div>
+        <div class="resource-controls"><div class="controls-left"></div><div class="controls-right"></div></div>
+        <div id="deploymentsContent" class="panel">
+          <div class="loading-state"><div class="spinner"></div><span>Loading deployments&hellip;</span></div>
+        </div>        <div id="deploymentsDetails" class="resource-details-panel"></div>      </div>
+
+      <!-- ══ SERVICES ══ -->
+      <div id="services" class="tab-content hidden">
+        <div class="page-header-row">
+          <div><h2 class="page-title">Services</h2><p class="page-subtitle">Service endpoints and network exposure</p></div>
+          <input type="text" id="serviceSearchFilter" placeholder="Search services&hellip;" onkeyup="filterTable('services')" class="search-box">
+        </div>
+        <div class="resource-controls"><div class="controls-left"></div><div class="controls-right"></div></div>
+        <div id="servicesContent" class="panel">
+          <div class="loading-state"><div class="spinner"></div><span>Loading services&hellip;</span></div>
+        </div>        <div id="servicesDetails" class="resource-details-panel"></div>      </div>
+
+      <!-- ══ INGRESSES ══ -->
+      <div id="ingresses" class="tab-content hidden">
+        <div class="page-header-row">
+          <div><h2 class="page-title">Ingresses</h2><p class="page-subtitle">Ingress rules, routing and TLS</p></div>
+          <input type="text" id="ingressSearchFilter" placeholder="Search ingresses&hellip;" onkeyup="filterTable('ingresses')" class="search-box">
+        </div>
+        <div class="resource-controls"><div class="controls-left"></div><div class="controls-right"></div></div>
+        <div id="ingressesContent" class="panel">
+          <div class="loading-state"><div class="spinner"></div><span>Loading ingresses&hellip;</span></div>
+        </div>        <div id="ingressesDetails" class="resource-details-panel"></div>      </div>
+
+      <!-- ══ CRONJOBS ══ -->
+      <div id="cronjobs" class="tab-content hidden">
+        <div class="page-header-row">
+          <div><h2 class="page-title">CronJobs &amp; Jobs</h2><p class="page-subtitle">Scheduled tasks and job history</p></div>
+          <input type="text" id="cronjobSearchFilter" placeholder="Search CronJobs&hellip;" onkeyup="filterTable('cronjobs')" class="search-box">
+        </div>
+        <div class="resource-controls"><div class="controls-left"></div><div class="controls-right"></div></div>
+        <div id="cronjobsContent" class="panel">
+          <div class="loading-state"><div class="spinner"></div><span>Loading CronJobs &amp; Jobs&hellip;</span></div>
+        </div>        <div id="cronjobsDetails" class="resource-details-panel"></div>      </div>
+
+      <!-- ══ CONFIGMAPS ══ -->
+      <div id="configmaps" class="tab-content hidden">
+        <div class="page-header-row">
+          <div><h2 class="page-title">ConfigMaps</h2><p class="page-subtitle">Application configuration data</p></div>
+          <input type="text" id="configmapSearchFilter" placeholder="Search ConfigMaps&hellip;" onkeyup="filterTable('configmaps')" class="search-box">
+        </div>
+        <div class="resource-controls"><div class="controls-left"></div><div class="controls-right"></div></div>
+        <div id="configmapsContent" class="panel">
+          <div class="loading-state"><div class="spinner"></div><span>Loading ConfigMaps&hellip;</span></div>
+        </div>        <div id="configmapsDetails" class="resource-details-panel"></div>      </div>
+
+      <!-- ══ SECRETS ══ -->
+      <div id="secrets" class="tab-content hidden">
+        <div class="page-header-row">
+          <div><h2 class="page-title">Secrets</h2><p class="page-subtitle">Sensitive data and credentials</p></div>
+          <input type="text" id="secretSearchFilter" placeholder="Search Secrets&hellip;" onkeyup="filterTable('secrets')" class="search-box">
+        </div>
+        <div class="resource-controls"><div class="controls-left"></div><div class="controls-right"></div></div>
+        <div id="secretsContent" class="panel">
+          <div class="loading-state"><div class="spinner"></div><span>Loading Secrets&hellip;</span></div>
+        </div>        <div id="secretsDetails" class="resource-details-panel"></div>      </div>
+
+      <!-- ══ PV/PVC ══ -->
+      <div id="pvpvc" class="tab-content hidden">
+        <div class="page-header">
+          <h2 class="page-title">Persistent Volumes</h2>
+          <p class="page-subtitle">Volume claims and persistent storage</p>
+        </div>
+        <div class="resource-controls"><div class="controls-left"></div><div class="controls-right"></div></div>
+        <div id="pvpvcContent" class="panel">
+          <div class="loading-state"><div class="spinner"></div><span>Loading PV/PVC&hellip;</span></div>
+        </div>        <div id="pvpvcDetails" class="resource-details-panel"></div>      </div>
+
+      <!-- ══ CRDs ══ -->
+      <div id="crds" class="tab-content hidden">
+        <div class="page-header-row">
+          <div><h2 class="page-title">Custom Resource Definitions</h2><p class="page-subtitle">CRDs registered in the cluster</p></div>
+          <input type="text" id="crdSearchFilter" placeholder="Search CRDs&hellip;" onkeyup="filterTable('crds')" class="search-box">
+        </div>
+        <div class="resource-controls"><div class="controls-left"></div><div class="controls-right"></div></div>
+        <div id="crdsContent" class="panel">
+          <div class="loading-state"><div class="spinner"></div><span>Loading CRDs&hellip;</span></div>
+        </div>        <div id="crdsDetails" class="resource-details-panel"></div>      </div>
+
+      <!-- ══ RELEASES ══ -->
+      <div id="releases" class="tab-content hidden">
+        <div class="page-header">
+          <h2 class="page-title">Releases</h2>
+          <p class="page-subtitle">Helm releases and deployment history</p>
+        </div>
+        <div class="resource-controls"><div class="controls-left"></div><div class="controls-right"></div></div>
+        <div id="releasesResults" class="panel">
+          <div class="loading-state"><div class="spinner"></div><span>Loading releases&hellip;</span></div>
+        </div>        <div id="releasesDetails" class="resource-details-panel"></div>      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="/static/detail-panels.js"></script>
+<script src="/static/script.js"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-module ajna
+module atlas
 
 go 1.25.0
 

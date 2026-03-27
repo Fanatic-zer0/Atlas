@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"ajna/internal/app"
+	"atlas/internal/app"
 
 	"github.com/gorilla/mux"
 )
@@ -59,12 +59,10 @@ func SetupRoutes(application *app.App) *mux.Router {
 	r.HandleFunc("/api/configmaps/{namespace}", getConfigMaps(application)).Methods("GET")
 	r.HandleFunc("/api/secrets/{namespace}", getSecrets(application)).Methods("GET")
 	r.HandleFunc("/api/relationships/{namespace}", getResourceRelationships(application)).Methods("GET")
+	r.HandleFunc("/api/cronjobs/{namespace}", getCronJobsAndJobs(application)).Methods("GET")
 	r.HandleFunc("/api/network/test", testNetwork(application)).Methods("POST")
 	r.HandleFunc("/api/cache/clear", clearCache(application)).Methods("POST")
 	r.HandleFunc("/api/cache/stats", getCacheStats(application)).Methods("GET")
-
-	// Export endpoints (CSV/JSON download)
-	r.HandleFunc("/api/export/{resource_type}/{namespace}", getExport(application)).Methods("GET")
 
 	return r
 }

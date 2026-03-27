@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"ajna/internal/app"
+	"atlas/internal/app"
 
 	"encoding/json"
 

@@ -3,9 +3,10 @@ package httpapi
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
-	"ajna/internal/app"
+	"atlas/internal/app"
 
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -30,6 +31,102 @@ func formatAge(d time.Duration) string {
 		return fmt.Sprintf("%dm", minutes)
 	}
 	return fmt.Sprintf("%ds", int(d.Seconds()))
+}
+
+// calculateNextRunIn estimates time until next cron execution based on schedule
+func calculateNextRunIn(schedule string, lastScheduleTime *time.Time) string {
+	// Parse common cron patterns and estimate next run
+	// Format: minute hour day month weekday
+	// For simplicity, we estimate based on common patterns
+
+	if schedule == "" {
+		return "-"
+	}
+
+	// Parse schedule to estimate interval
+	var interval time.Duration
+	var fixedMinute, fixedHour int = -1, -1
+
+	// Parse the schedule parts
+	parts := strings.Fields(schedule)
+	if len(parts) >= 2 {
+		// Parse minute field
+		minPart := parts[0]
+		hourPart := parts[1]
+
+		// Check for */N patterns
+		if strings.HasPrefix(minPart, "*/") {
+			var n int
+			if _, err := fmt.Sscanf(minPart, "*/%d", &n); err == nil && n > 0 {
+				interval = time.Duration(n) * time.Minute
+			}
+		} else if minPart == "*" {
+			interval = time.Minute
+		} else if n, err := fmt.Sscanf(minPart, "%d", &fixedMinute); err == nil && n == 1 {
+			// Fixed minute, check hour
+			if strings.HasPrefix(hourPart, "*/") {
+				var h int
+				if _, err := fmt.Sscanf(hourPart, "*/%d", &h); err == nil && h > 0 {
+					interval = time.Duration(h) * time.Hour
+				}
+			} else if hourPart == "*" {
+				interval = time.Hour
+			} else if n, err := fmt.Sscanf(hourPart, "%d", &fixedHour); err == nil && n == 1 {
+				// Fixed hour and minute - daily schedule
+				interval = 24 * time.Hour
+			}
+		}
+	}
+
+	// If we couldn't parse, return a simple estimate based on last schedule
+	if interval == 0 {
+		if lastScheduleTime != nil {
+			// Estimate based on time since last schedule (assume daily if unknown)
+			interval = 24 * time.Hour
+		} else {
+			return "-"
+		}
+	}
+
+	// Calculate time until next run
+	var nextRun time.Time
+	if lastScheduleTime != nil {
+		nextRun = lastScheduleTime.Add(interval)
+	} else {
+		// If never scheduled, estimate from now
+		nextRun = time.Now().Add(interval)
+	}
+
+	timeUntil := time.Until(nextRun)
+	if timeUntil < 0 {
+		// Already past, next interval
+		timeUntil = interval + timeUntil
+		if timeUntil < 0 {
+			timeUntil = interval
+		}
+	}
+
+	// Format the duration appropriately
+	if timeUntil < time.Minute {
+		return fmt.Sprintf("%ds", int(timeUntil.Seconds()))
+	}
+	if timeUntil < time.Hour {
+		return fmt.Sprintf("%dm", int(timeUntil.Minutes()))
+	}
+	if timeUntil < 24*time.Hour {
+		hours := int(timeUntil.Hours())
+		mins := int(timeUntil.Minutes()) % 60
+		if mins > 0 {
+			return fmt.Sprintf("%dh %dm", hours, mins)
+		}
+		return fmt.Sprintf("%dh", hours)
+	}
+	days := int(timeUntil.Hours() / 24)
+	hours := int(timeUntil.Hours()) % 24
+	if hours > 0 {
+		return fmt.Sprintf("%dd %dh", days, hours)
+	}
+	return fmt.Sprintf("%dd", days)
 }
 
 func calculatePodHealth(pod *corev1.Pod) int {
@@ -67,6 +164,50 @@ func getPodStatusEmoji(pod *corev1.Pod) string {
 		return "⚠"
 	}
 	return "✗"
+}
+
+// getContainerStatusDetails returns detailed status info for pod containers
+func getContainerStatusDetails(pod *corev1.Pod) string {
+	var details []string
+
+	for _, cs := range pod.Status.ContainerStatuses {
+		if cs.State.Waiting != nil {
+			details = append(details, fmt.Sprintf("%s: Waiting - %s", cs.Name, cs.State.Waiting.Reason))
+		} else if cs.State.Terminated != nil {
+			t := cs.State.Terminated
+			if t.ExitCode != 0 {
+				details = append(details, fmt.Sprintf("%s: Terminated - %s (exit code: %d)", cs.Name, t.Reason, t.ExitCode))
+			} else {
+				details = append(details, fmt.Sprintf("%s: Completed", cs.Name))
+			}
+		} else if cs.State.Running != nil {
+			if !cs.Ready {
+				details = append(details, fmt.Sprintf("%s: Running (not ready)", cs.Name))
+			}
+		}
+
+		// Check last termination state
+		if cs.LastTerminationState.Terminated != nil {
+			lt := cs.LastTerminationState.Terminated
+			if lt.ExitCode != 0 {
+				details = append(details, fmt.Sprintf("%s: Last exit - %s (code: %d)", cs.Name, lt.Reason, lt.ExitCode))
+			}
+		}
+	}
+
+	// Check init containers
+	for _, cs := range pod.Status.InitContainerStatuses {
+		if cs.State.Waiting != nil {
+			details = append(details, fmt.Sprintf("Init %s: Waiting - %s", cs.Name, cs.State.Waiting.Reason))
+		} else if cs.State.Terminated != nil && cs.State.Terminated.ExitCode != 0 {
+			details = append(details, fmt.Sprintf("Init %s: Failed (exit code: %d)", cs.Name, cs.State.Terminated.ExitCode))
+		}
+	}
+
+	if len(details) == 0 {
+		return "OK"
+	}
+	return strings.Join(details, "; ")
 }
 
 func getDeploymentStatusEmoji(dep *appsv1.Deployment) string {

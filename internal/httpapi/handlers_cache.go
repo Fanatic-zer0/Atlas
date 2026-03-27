@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"ajna/internal/app"
+	"atlas/internal/app"
 )
 
 // clearCache clears all cached data

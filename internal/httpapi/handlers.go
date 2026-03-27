@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"ajna/internal/app"
-	"ajna/internal/k8s"
+	"atlas/internal/app"
+	"atlas/internal/k8s"
 
 	"github.com/gorilla/mux"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -676,6 +676,9 @@ func getPods(application *app.App) http.HandlerFunc {
 			age := time.Since(pod.CreationTimestamp.Time)
 			ageStr := formatAge(age)
 
+			// Build detailed status info
+			statusDetails := getContainerStatusDetails(&pod)
+
 			result = append(result, map[string]interface{}{
 				"name":             pod.Name,
 				"namespace":        pod.Namespace,
@@ -688,6 +691,7 @@ func getPods(application *app.App) http.HandlerFunc {
 				"node":             pod.Spec.NodeName,
 				"health_score":     calculatePodHealth(&pod),
 				"status_emoji":     getPodStatusEmoji(&pod),
+				"status_details":   statusDetails,
 			})
 		}
 
@@ -1090,12 +1094,13 @@ func getConfigMaps(application *app.App) http.HandlerFunc {
 			age := time.Since(cm.CreationTimestamp.Time)
 			ageStr := formatAge(age)
 
+			// For security, we don't include the actual data values
+			// Only send metadata and key names
 			result = append(result, map[string]interface{}{
 				"name":      cm.Name,
 				"namespace": cm.Namespace,
 				"keys":      keys,
 				"key_count": len(keys),
-				"data":      cm.Data,
 				"age":       ageStr,
 				"created":   cm.CreationTimestamp.Format(time.RFC3339),
 			})
@@ -1615,6 +1620,120 @@ func getCRDs(application *app.App) http.HandlerFunc {
 		application.Cache.Set(cacheKey, result, 5*time.Minute)
 
 		json.NewEncoder(w).Encode(result)
+	}
+}
+
+// getCronJobsAndJobs returns cronjobs with nested jobs
+func getCronJobsAndJobs(application *app.App) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		vars := mux.Vars(r)
+		namespace := vars["namespace"]
+		ctx := r.Context()
+
+		// Fetch CronJobs
+		cronJobs := []map[string]interface{}{}
+		cjList, err := application.K8sClient.Clientset.BatchV1().CronJobs(namespace).List(ctx, metav1.ListOptions{})
+		if err == nil {
+			for _, cj := range cjList.Items {
+				suspend := false
+				if cj.Spec.Suspend != nil {
+					suspend = *cj.Spec.Suspend
+				}
+				var lastScheduleTime *time.Time
+				if cj.Status.LastScheduleTime != nil {
+					lastScheduleTime = &cj.Status.LastScheduleTime.Time
+				}
+				age := formatAge(time.Since(cj.CreationTimestamp.Time))
+
+				// Calculate next run time based on schedule
+				nextRunIn := calculateNextRunIn(cj.Spec.Schedule, lastScheduleTime)
+
+				cronJobs = append(cronJobs, map[string]interface{}{
+					"name":               cj.Name,
+					"namespace":          cj.Namespace,
+					"schedule":           cj.Spec.Schedule,
+					"suspend":            suspend,
+					"last_schedule_time": lastScheduleTime,
+					"next_run_in":        nextRunIn,
+					"age":                age,
+					"active_count":       len(cj.Status.Active),
+					"concurrency_policy": string(cj.Spec.ConcurrencyPolicy),
+					"jobs":               []map[string]interface{}{},
+				})
+			}
+		}
+
+		// Fetch Jobs and group under their owner CronJob
+		jobList, err := application.K8sClient.Clientset.BatchV1().Jobs(namespace).List(ctx, metav1.ListOptions{})
+		if err == nil {
+			// Build cronjob map for quick lookup
+			cjMap := map[string]map[string]interface{}{}
+			for i := range cronJobs {
+				cjName := cronJobs[i]["name"].(string)
+				cjMap[cjName] = cronJobs[i]
+			}
+
+			for _, job := range jobList.Items {
+				// Find owner CronJob
+				var ownerCronJob string
+				for _, ref := range job.OwnerReferences {
+					if ref.Kind == "CronJob" {
+						ownerCronJob = ref.Name
+						break
+					}
+				}
+
+				// Skip jobs that don't belong to a CronJob
+				if ownerCronJob == "" {
+					continue
+				}
+
+				// Skip if parent CronJob not found
+				cj, found := cjMap[ownerCronJob]
+				if !found {
+					continue
+				}
+
+				status := "Pending"
+				if job.Status.Succeeded > 0 {
+					status = "Completed"
+				} else if job.Status.Failed > 0 {
+					status = "Failed"
+				} else if job.Status.Active > 0 {
+					status = "Active"
+				}
+				completions := int32(1)
+				if job.Spec.Completions != nil {
+					completions = *job.Spec.Completions
+				}
+				var duration string
+				if job.Status.StartTime != nil {
+					endTime := time.Now()
+					if job.Status.CompletionTime != nil {
+						endTime = job.Status.CompletionTime.Time
+					}
+					duration = formatAge(endTime.Sub(job.Status.StartTime.Time))
+				}
+				age := formatAge(time.Since(job.CreationTimestamp.Time))
+
+				jobData := map[string]interface{}{
+					"name":        job.Name,
+					"namespace":   job.Namespace,
+					"status":      status,
+					"completions": completions,
+					"succeeded":   job.Status.Succeeded,
+					"failed":      job.Status.Failed,
+					"active":      job.Status.Active,
+					"duration":    duration,
+					"age":         age,
+				}
+
+				cj["jobs"] = append(cj["jobs"].([]map[string]interface{}), jobData)
+			}
+		}
+
+		json.NewEncoder(w).Encode(cronJobs)
 	}
 }
 

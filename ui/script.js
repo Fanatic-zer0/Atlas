@@ -60,28 +60,12 @@ function toggleSidebar() {
 function toggleMobileSidebar() {
     const sidebar = document.getElementById('mobileSidebar');
     if (sidebar) {
-        sidebar.classList.toggle('-translate-x-full');
+        sidebar.classList.toggle('open');
     }
 }
 
 function loadSidebarState() {
     // Future implementation for sidebar state persistence
-}
-
-/* ============================================
-   EXPORT (CSV/JSON)
-   ============================================ */
-
-function exportResource(resourceType, format) {
-    const ns = resourceType === 'crds' ? 'cluster' : currentNamespace;
-    const url = `/api/export/${resourceType}/${encodeURIComponent(ns)}?format=${format}`;
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = '';
-    a.target = '_blank';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
 }
 
 /* ============================================
@@ -182,6 +166,10 @@ async function loadTabData(tabName) {
             break;
         case 'crds':
             loadCRDs();
+            tabDataCache[tabName] = { namespace: currentNamespace, loaded: true };
+            break;
+        case 'cronjobs':
+            await loadCronJobsAndJobs();
             tabDataCache[tabName] = { namespace: currentNamespace, loaded: true };
             break;
         case 'network':
@@ -584,6 +572,8 @@ async function loadIngresses() {
             return;
         }
 
+        // Store globally for detail panel access
+        window.ingressesData = ingresses;
         renderIngressesTable(ingresses, container);
     } catch (error) {
         container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error loading ingresses</p><small>${error.message}</small></div>`;
@@ -625,7 +615,6 @@ function renderIngressesTable(ingresses, container) {
         <table class="resource-table ingress-table">
             <thead>
                 <tr>
-                    <th style="width: 30px;"></th>
                     <th>Ingress Name</th>
                     <th>Host</th>
                     <th>Class</th>
@@ -637,9 +626,6 @@ function renderIngressesTable(ingresses, container) {
     `;
 
     ingresses.forEach((ing, idx) => {
-        const ingressId = `ingress-${idx}`;
-        const hasDetails = ing.rules && ing.rules.length > 0;
-        
         // Get primary host (first rule's host or first host)
         let primaryHost = '*';
         let hostCount = 0;
@@ -660,12 +646,9 @@ function renderIngressesTable(ingresses, container) {
             ? ing.loadbalancer_ips.join(', ')
             : '-';
 
-        // Main row
+        // Main row - clickable to open detail panel
         html += `
-            <tr class="ingress-row ${hasDetails ? 'expandable' : ''}" onclick="${hasDetails ? `toggleIngressDetails('${ingressId}')` : ''}">
-                <td class="expand-icon">
-                    ${hasDetails ? `<span id="${ingressId}-icon" class="collapse-icon">▶</span>` : ''}
-                </td>
+            <tr class="clickable-row" onclick="openDetailPanel('ingressesDetails', 'Ingress', '${currentNamespace}', '${ing.name}', window.ingressesData[${idx}])">
                 <td>🌐 ${ing.name}</td>
                 <td><span class="badge-host">${hostDisplay}</span></td>
                 <td>${ing.ingress_class || '-'}</td>
@@ -673,19 +656,6 @@ function renderIngressesTable(ingresses, container) {
                 <td><span class="text-muted">${lbIPs}</span></td>
             </tr>
         `;
-
-        // Details row (collapsed by default)
-        if (hasDetails) {
-            html += `
-                <tr id="${ingressId}-details" class="ingress-details-row" style="display: none;">
-                    <td colspan="6">
-                        <div class="ingress-details-content">
-                            ${renderIngressDetails(ing)}
-                        </div>
-                    </td>
-                </tr>
-            `;
-        }
     });
 
     html += `
@@ -848,6 +818,8 @@ async function loadServices() {
             return;
         }
 
+        // Store globally for detail panel access
+        window.servicesData = services;
         renderServicesTable(services, container);
     } catch (error) {
         container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error loading services</p><small>${error.message}</small></div>`;
@@ -887,7 +859,6 @@ function renderServicesTable(services, container) {
         <table class="resource-table service-table">
             <thead>
                 <tr>
-                    <th style="width: 30px;"></th>
                     <th>Name</th>
                     <th>Type</th>
                     <th>Cluster IP</th>
@@ -899,16 +870,11 @@ function renderServicesTable(services, container) {
     `;
 
     services.forEach((svc, idx) => {
-        const serviceId = `service-${idx}`;
-        const hasDetails = (svc.ports && svc.ports.length > 0) || (svc.selector && Object.keys(svc.selector).length > 0);
         const typeClass = svc.type === 'LoadBalancer' ? 'success' : svc.type === 'NodePort' ? 'warning' : 'info';
         
-        // Main row
+        // Main row - clickable to open detail panel
         html += `
-            <tr class="service-row ${hasDetails ? 'expandable' : ''}" onclick="${hasDetails ? `toggleServiceDetails('${serviceId}')` : ''}">
-                <td class="expand-icon">
-                    ${hasDetails ? `<span id="${serviceId}-icon" class="collapse-icon">▶</span>` : ''}
-                </td>
+            <tr class="clickable-row" onclick="openDetailPanel('servicesDetails', 'Service', '${currentNamespace}', '${svc.name}', window.servicesData[${idx}])">
                 <td>🔗 ${svc.name}</td>
                 <td><span class="badge-${typeClass}">${svc.type || 'ClusterIP'}</span></td>
                 <td><span class="mono-text">${svc.cluster_ip || '-'}</span></td>
@@ -916,19 +882,6 @@ function renderServicesTable(services, container) {
                 <td><span class="badge-${svc.endpoint_count > 0 ? 'success' : 'secondary'}">${svc.endpoint_count || 0}</span></td>
             </tr>
         `;
-
-        // Details row
-        if (hasDetails) {
-            html += `
-                <tr id="${serviceId}-details" class="service-details-row" style="display: none;">
-                    <td colspan="6">
-                        <div class="ingress-details-content">
-                            ${renderServiceDetails(svc)}
-                        </div>
-                    </td>
-                </tr>
-            `;
-        }
     });
 
     html += `
@@ -1040,6 +993,8 @@ async function loadConfigMaps() {
             return;
         }
 
+        // Store globally for detail panel access
+        window.configMapsData = configmaps;
         renderConfigMapsTable(configmaps, container);
     } catch (error) {
         container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error loading configmaps</p><small>${error.message}</small></div>`;
@@ -1047,7 +1002,7 @@ async function loadConfigMaps() {
 }
 
 function renderConfigMapsTable(configmaps, container) {
-    const totalKeys = configmaps.reduce((sum, cm) => sum + Object.keys(cm.data || {}).length, 0);
+    const totalKeys = configmaps.reduce((sum, cm) => sum + (cm.keys?.length || 0), 0);
     
     // Update stats in resource-controls
     const statsHtml = `
@@ -1074,7 +1029,6 @@ function renderConfigMapsTable(configmaps, container) {
         <table class="resource-table configmap-table">
             <thead>
                 <tr>
-                    <th style="width: 30px;"></th>
                     <th>Name</th>
                     <th>Keys</th>
                     <th>Age</th>
@@ -1084,34 +1038,16 @@ function renderConfigMapsTable(configmaps, container) {
     `;
 
     configmaps.forEach((cm, idx) => {
-        const configmapId = `configmap-${idx}`;
-        const keys = Object.keys(cm.data || {});
-        const hasDetails = keys.length > 0;
+        const keys = cm.keys || [];
         
-        // Main row
+        // Main row - clickable to open detail panel
         html += `
-            <tr class="configmap-row ${hasDetails ? 'expandable' : ''}" onclick="${hasDetails ? `toggleConfigMapDetails('${configmapId}')` : ''}">
-                <td class="expand-icon">
-                    ${hasDetails ? `<span id="${configmapId}-icon" class="collapse-icon">▶</span>` : ''}
-                </td>
+            <tr class="clickable-row" onclick="openDetailPanel('configmapsDetails', 'ConfigMap', '${currentNamespace}', '${cm.name}', window.configMapsData[${idx}])">
                 <td>📝 ${cm.name}</td>
                 <td><span class="badge-info">${keys.length}</span></td>
                 <td>${cm.age || '-'}</td>
             </tr>
         `;
-
-        // Details row
-        if (hasDetails) {
-            html += `
-                <tr id="${configmapId}-details" class="configmap-details-row" style="display: none;">
-                    <td colspan="4">
-                        <div class="ingress-details-content">
-                            ${renderConfigMapDetails(cm)}
-                        </div>
-                    </td>
-                </tr>
-            `;
-        }
     });
 
     html += `
@@ -1125,27 +1061,28 @@ function renderConfigMapsTable(configmaps, container) {
 function renderConfigMapDetails(cm) {
     let detailsHtml = '<div class="ingress-details-grid">';
     
-    // Keys section
-    if (cm.data && Object.keys(cm.data).length > 0) {
+    // Keys section - show only key names, not values for security
+    const keys = cm.keys || [];
+    if (keys.length > 0) {
         detailsHtml += `
             <div class="ingress-rule-card">
                 <div class="ingress-rule-header">
                     <strong>🔑 Configuration Keys</strong>
+                    <span class="text-xs text-gray-500 dark:text-gray-400 ml-2">(values hidden for security)</span>
                 </div>
                 <div class="ingress-paths">
         `;
         
-        Object.entries(cm.data).forEach(([key, value]) => {
-            // Safely handle value that might contain HTML or be very long
-            const safeValue = String(value || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            const preview = safeValue.length > 100 ? safeValue.substring(0, 100) + '...' : safeValue;
+        keys.forEach(key => {
             detailsHtml += `
                 <div class="ingress-path-item">
                     <div class="path-route">
                         <span class="path-badge">KEY</span>
                         <code>${key}</code>
                     </div>
-                    ${preview ? `<div class="path-backend"><span class="text-muted">${preview}</span></div>` : ''}
+                    <div class="path-backend">
+                        <span class="text-muted">🔒 Value hidden</span>
+                    </div>
                 </div>
             `;
         });
@@ -1187,6 +1124,8 @@ async function loadSecrets() {
             return;
         }
 
+        // Store globally for detail panel access
+        window.secretsData = secrets;
         renderSecretsTable(secrets, container);
     } catch (error) {
         container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error loading secrets</p><small>${error.message}</small></div>`;
@@ -1226,7 +1165,6 @@ function renderSecretsTable(secrets, container) {
         <table class="resource-table secret-table">
             <thead>
                 <tr>
-                    <th style="width: 30px;"></th>
                     <th>Name</th>
                     <th>Type</th>
                     <th>Keys</th>
@@ -1237,35 +1175,17 @@ function renderSecretsTable(secrets, container) {
     `;
 
     secrets.forEach((sec, idx) => {
-        const secretId = `secret-${idx}`;
         const keys = sec.keys || [];
-        const hasDetails = keys.length > 0;
         
-        // Main row
+        // Main row - clickable to open detail panel
         html += `
-            <tr class="secret-row ${hasDetails ? 'expandable' : ''}" onclick="${hasDetails ? `toggleSecretDetails('${secretId}')` : ''}">
-                <td class="expand-icon">
-                    ${hasDetails ? `<span id="${secretId}-icon" class="collapse-icon">▶</span>` : ''}
-                </td>
+            <tr class="clickable-row" onclick="openDetailPanel('secretsDetails', 'Secret', '${currentNamespace}', '${sec.name}', window.secretsData[${idx}])">
                 <td>🔐 ${sec.name}</td>
                 <td><span class="badge-secondary">${sec.type || 'Opaque'}</span></td>
                 <td><span class="badge-info">${keys.length}</span></td>
                 <td>${sec.age || '-'}</td>
             </tr>
         `;
-
-        // Details row
-        if (hasDetails) {
-            html += `
-                <tr id="${secretId}-details" class="secret-details-row" style="display: none;">
-                    <td colspan="5">
-                        <div class="ingress-details-content">
-                            ${renderSecretDetails(sec)}
-                        </div>
-                    </td>
-                </tr>
-            `;
-        }
     });
 
     html += `
@@ -1378,6 +1298,9 @@ async function loadPods() {
             controlsDiv.insertAdjacentHTML('afterbegin', statsHtml);
         }
 
+        // Store pods data for panel access
+        window.podsData = pods;
+
         container.innerHTML = `
             <table class="resource-table">
                 <thead>
@@ -1389,20 +1312,26 @@ async function loadPods() {
                         <th>Pod IP</th>
                         <th>Node</th>
                         <th>Age</th>
+                        <th>Status Details</th>
                     </tr>
                 </thead>
                 <tbody>
-                    ${pods.map(pod => `
-                        <tr>
+                    ${pods.map((pod, idx) => {
+                        const statusDetails = pod.status_details || 'OK';
+                        const isError = statusDetails.includes('Error') || statusDetails.includes('Failed') || statusDetails.includes('exit code');
+                        const detailsClass = isError ? 'badge-danger' : statusDetails === 'OK' ? 'badge-success' : 'badge-warning';
+                        return `
+                        <tr class="clickable-row" onclick="openDetailPanel('podsDetails', 'Pod', '${currentNamespace}', '${pod.name}', window.podsData[${idx}])">
                             <td>📦 ${pod.name || 'N/A'}</td>
-                            <td><span class="badge ${pod.status === 'Running' ? 'badge-success' : pod.status === 'Pending' ? 'badge-warning' : 'badge-danger'}">${pod.status || 'Unknown'}</span></td>
+                            <td><span class="badge ${['Running', 'Succeeded', 'Completed'].includes(pod.status) ? 'badge-success' : pod.status === 'Pending' ? 'badge-warning' : ['Failed', 'Error', 'CrashLoopBackOff', 'ImagePullBackOff'].includes(pod.status) ? 'badge-danger' : 'badge-secondary'}">${pod.status || 'Unknown'}</span></td>
                             <td>${pod.ready_containers || 0}/${pod.total_containers || 0}</td>
                             <td><span class="badge-${(pod.restart_count || 0) > 5 ? 'danger' : 'secondary'}">${pod.restart_count || 0}</span></td>
                             <td><span class="badge-info">${pod.ip || 'N/A'}</span></td>
                             <td>${pod.node || 'N/A'}</td>
                             <td>${pod.age || 'N/A'}</td>
+                            <td><span class="${detailsClass}" style="font-size: 0.85em; max-width: 300px; display: inline-block; word-wrap: break-word;">${statusDetails}</span></td>
                         </tr>
-                    `).join('')}
+                    `}).join('')}
                 </tbody>
             </table>
         `;
@@ -1438,6 +1367,8 @@ async function loadDeployments() {
             return;
         }
 
+        // Store globally for detail panel access
+        window.deploymentsData = deployments;
         renderDeploymentsTable(deployments, container);
     } catch (error) {
         container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error loading deployments</p><small>${error.message}</small></div>`;
@@ -1477,7 +1408,6 @@ function renderDeploymentsTable(deployments, container) {
         <table class="resource-table deployment-table">
             <thead>
                 <tr>
-                    <th style="width: 30px;"></th>
                     <th>Name</th>
                     <th>Replicas</th>
                     <th>Updated</th>
@@ -1489,16 +1419,11 @@ function renderDeploymentsTable(deployments, container) {
     `;
 
     deployments.forEach((dep, idx) => {
-        const deploymentId = `deployment-${idx}`;
         const ready = (dep.ready_replicas || 0) === (dep.desired_replicas || 0);
-        const hasDetails = dep.images && dep.images.length > 0;
         
-        // Main row
+        // Main row - clickable to open detail panel
         html += `
-            <tr class="deployment-row ${hasDetails ? 'expandable' : ''}" onclick="${hasDetails ? `toggleDeploymentDetails('${deploymentId}')` : ''}">
-                <td class="expand-icon">
-                    ${hasDetails ? `<span id="${deploymentId}-icon" class="collapse-icon">▶</span>` : ''}
-                </td>
+            <tr class="clickable-row" onclick="openDetailPanel('deploymentsDetails', 'Deployment', '${currentNamespace}', '${dep.name}', window.deploymentsData[${idx}])">
                 <td>🏗️ ${dep.name || 'Unknown'}</td>
                 <td><span class="badge-${ready ? 'success' : 'warning'}">${dep.ready_replicas || 0}/${dep.desired_replicas || 0}</span></td>
                 <td><span class="badge-info">${dep.updated_replicas || 0}</span></td>
@@ -1506,19 +1431,6 @@ function renderDeploymentsTable(deployments, container) {
                 <td><span class="badge-${ready ? 'success' : 'warning'}">${ready ? '✅ Ready' : '⏳ Progressing'}</span></td>
             </tr>
         `;
-
-        // Details row
-        if (hasDetails) {
-            html += `
-                <tr id="${deploymentId}-details" class="deployment-details-row" style="display: none;">
-                    <td colspan="6">
-                        <div class="ingress-details-content">
-                            ${renderDeploymentDetails(dep)}
-                        </div>
-                    </td>
-                </tr>
-            `;
-        }
     });
 
     html += `
@@ -1593,230 +1505,299 @@ async function loadHealth() {
         const response = await fetch(`/api/health/${currentNamespace}`);
         const data = await response.json();
 
-        // Update stats in resource-controls
-        const totalResources = (data.pod_count || 0) + (data.deployment_count || 0) + (data.service_count || 0) + (data.ingress_count || 0);
-        const healthyPods = data.pod_running || 0;
-        const issuesCount = (data.pod_failed || 0) + (data.pod_pending || 0);
+        // Calculate percentages
+        const podCount = data.pod_count || 0;
+        const podReady = data.pod_running || 0;
+        const podUnhealthy = podCount - podReady;
+        const podPercentage = podCount > 0 ? Math.round((podReady / podCount) * 100) : 0;
         
-        const statsHtml = `
-            <div class="resource-stats">
-                <div class="stat-mini">
-                    <span class="stat-mini-value">${totalResources}</span>
-                    <span class="stat-mini-label">Resources</span>
-                </div>
-                <div class="stat-mini">
-                    <span class="stat-mini-value">${healthyPods}</span>
-                    <span class="stat-mini-label">Healthy Pods</span>
-                </div>
-                <div class="stat-mini">
-                    <span class="stat-mini-value" style="color: ${issuesCount > 0 ? 'var(--warning-color)' : 'var(--success-color)'}">${issuesCount}</span>
-                    <span class="stat-mini-label">Issues</span>
-                </div>
-            </div>
-        `;
+        const deploymentCount = data.deployment_count || 0;
+        const deploymentHealthy = data.deployment_health?.healthy || 0;
+        const deploymentUnhealthy = deploymentCount - deploymentHealthy;
+        const deploymentPercentage = deploymentCount > 0 ? Math.round((deploymentHealthy / deploymentCount) * 100) : 0;
         
-        const controlsDiv = document.querySelector('#health .resource-controls');
-        if (controlsDiv) {
-            const existingStats = controlsDiv.querySelector('.resource-stats');
-            if (existingStats) existingStats.remove();
-            controlsDiv.insertAdjacentHTML('afterbegin', statsHtml);
-        }
+        const nodeCount = data.summary?.nodes || 0;
+        const nodeReady = data.summary?.nodes_ready || nodeCount;
+        const nodeUnhealthy = nodeCount - nodeReady;
+        const nodePercentage = nodeCount > 0 ? Math.round((nodeReady / nodeCount) * 100) : 100;
+        
+        const podRunning = data.pod_running || 0;
+        const podPending = data.pod_pending || 0;
+        const podFailed = data.pod_failed || 0;
+        
+        const deploymentDegraded = data.deployment_health?.degraded || 0;
+        const deploymentCritical = data.deployment_health?.critical || 0;
+        
+        const servicesWithEndpoints = data.service_health?.with_endpoints || 0;
+        const servicesNoEndpoints = data.service_health?.without_endpoints || 0;
 
         let html = '';
 
-        // 1. Resource Summary Table
+        // === PRIMARY METRICS - Circular Progress Indicators ===
         html += `
-            <div class="health-card">
-                <h3>📊 Resource Summary</h3>
-                <table class="resource-table">
-                    <thead>
-                        <tr>
-                            <th>Resource Type</th>
-                            <th style="text-align: center; width: 120px;">Count</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>🖥️ Nodes</td>
-                            <td style="text-align: center;"><span class="badge-info">${data.summary?.nodes || 0}</span></td>
-                        </tr>
-                        <tr>
-                            <td>📦 Pods</td>
-                            <td style="text-align: center;"><span class="badge-info">${data.pod_count || 0}</span></td>
-                        </tr>
-                        <tr>
-                            <td>🚀 Deployments</td>
-                            <td style="text-align: center;"><span class="badge-info">${data.deployment_count || 0}</span></td>
-                        </tr>
-                        <tr>
-                            <td>🔌 Services</td>
-                            <td style="text-align: center;"><span class="badge-info">${data.service_count || 0}</span></td>
-                        </tr>
-                        <tr>
-                            <td>🌐 Ingresses</td>
-                            <td style="text-align: center;"><span class="badge-info">${data.ingress_count || 0}</span></td>
-                        </tr>
-                    </tbody>
-                </table>
+            <div class="health-primary-metrics">
+                <div class="circular-metric">
+                    <div class="circular-progress ${podPercentage >= 80 ? 'status-healthy' : podPercentage >= 50 ? 'status-warning' : 'status-critical'}" data-percentage="${podPercentage}">
+                        <svg class="circular-svg" width="120" height="120">
+                            <circle class="circular-bg" cx="60" cy="60" r="50"/>
+                            <circle class="circular-bar" cx="60" cy="60" r="50" 
+                                style="stroke-dashoffset: ${314 - (314 * podPercentage) / 100};"/>
+                        </svg>
+                        <div class="circular-text">
+                            <div class="circular-value">${podCount}</div>
+                        </div>
+                    </div>
+                    <div class="circular-label">Pods</div>
+                    <div class="circular-breakdown">
+                        <div class="breakdown-item success"><span class="dot"></span><span class="count">${podReady}</span></div>
+                        <div class="breakdown-item danger"><span class="dot"></span><span class="count">${podUnhealthy}</span></div>
+                    </div>
+                </div>
+                
+                <div class="circular-metric">
+                    <div class="circular-progress ${deploymentPercentage >= 80 ? 'status-healthy' : deploymentPercentage >= 50 ? 'status-warning' : 'status-critical'}" data-percentage="${deploymentPercentage}">
+                        <svg class="circular-svg" width="120" height="120">
+                            <circle class="circular-bg" cx="60" cy="60" r="50"/>
+                            <circle class="circular-bar" cx="60" cy="60" r="50" 
+                                style="stroke-dashoffset: ${314 - (314 * deploymentPercentage) / 100};"/>
+                        </svg>
+                        <div class="circular-text">
+                            <div class="circular-value">${deploymentCount}</div>
+                        </div>
+                    </div>
+                    <div class="circular-label">Deployments</div>
+                    <div class="circular-breakdown">
+                        <div class="breakdown-item success"><span class="dot"></span><span class="count">${deploymentHealthy}</span></div>
+                        <div class="breakdown-item danger"><span class="dot"></span><span class="count">${deploymentUnhealthy}</span></div>
+                    </div>
+                </div>
+                
+                <div class="circular-metric">
+                    <div class="circular-progress ${nodePercentage >= 80 ? 'status-healthy' : nodePercentage >= 50 ? 'status-warning' : 'status-critical'}" data-percentage="${nodePercentage}">
+                        <svg class="circular-svg" width="120" height="120">
+                            <circle class="circular-bg" cx="60" cy="60" r="50"/>
+                            <circle class="circular-bar" cx="60" cy="60" r="50" 
+                                style="stroke-dashoffset: ${314 - (314 * nodePercentage) / 100};"/>
+                        </svg>
+                        <div class="circular-text">
+                            <div class="circular-value">${nodeCount}</div>
+                        </div>
+                    </div>
+                    <div class="circular-label">Nodes</div>
+                    <div class="circular-breakdown">
+                        <div class="breakdown-item success"><span class="dot"></span><span class="count">${nodeReady}</span></div>
+                        <div class="breakdown-item danger"><span class="dot"></span><span class="count">${nodeUnhealthy}</span></div>
+                    </div>
+                </div>
             </div>
         `;
 
-        // 2. Pod Health Table
+        // === RESOURCE COUNTS GRID ===
+        const statefulSets = data.summary?.statefulsets || 0;
+        const statefulSetsReady = data.summary?.statefulsets_ready || 0;
+        const daemonSets = data.summary?.daemonsets || 0;
+        const daemonSetsReady = data.summary?.daemonsets_ready || 0;
+        const services = data.service_count || 0;
+        const ingresses = data.ingress_count || 0;
+        const jobs = data.summary?.jobs || 0;
+        const jobsSucceeded = data.summary?.jobs_succeeded || 0;
+        const cronJobs = data.summary?.cronjobs || 0;
+        const cronJobsSuspended = data.summary?.cronjobs_suspended || 0;
+        
         html += `
-            <div class="health-card">
-                <h3>📦 Pod Health</h3>
-                <table class="resource-table">
-                    <thead>
-                        <tr>
-                            <th>Status</th>
-                            <th style="text-align: center; width: 120px;">Count</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>✅ Running</td>
-                            <td style="text-align: center;"><span class="badge-success">${data.pod_running || 0}</span></td>
-                        </tr>
-                        <tr>
-                            <td>⏳ Pending</td>
-                            <td style="text-align: center;"><span class="badge-warning">${data.pod_pending || 0}</span></td>
-                        </tr>
-                        <tr>
-                            <td>❌ Failed</td>
-                            <td style="text-align: center;"><span class="badge-danger">${data.pod_failed || 0}</span></td>
-                        </tr>
-                    </tbody>
-                </table>
+            <div class="health-resources-grid">
+                <div class="health-resource-item">
+                    <div class="health-resource-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="2" y="3" width="20" height="18" rx="2"/>
+                            <path d="M2 9h20M9 21V9"/>
+                        </svg>
+                    </div>
+                    <div class="health-resource-count">${statefulSets}</div>
+                    <div class="health-resource-label">StatefulSets</div>
+                    <div class="health-resource-status">${statefulSetsReady} ready</div>
+                </div>
+                
+                <div class="health-resource-item">
+                    <div class="health-resource-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+                            <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+                        </svg>
+                    </div>
+                    <div class="health-resource-count">${daemonSets}</div>
+                    <div class="health-resource-label">DaemonSets</div>
+                    <div class="health-resource-status">${daemonSetsReady} ready</div>
+                </div>
+                
+                <div class="health-resource-item">
+                    <div class="health-resource-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6M5.64 5.64l4.24 4.24m4.24 4.24l4.24 4.24M1 12h6m6 0h6M5.64 18.36l4.24-4.24m4.24-4.24l4.24-4.24"/>
+                        </svg>
+                    </div>
+                    <div class="health-resource-count">${services}</div>
+                    <div class="health-resource-label">Services</div>
+                    <div class="health-resource-status">&nbsp;</div>
+                </div>
+                
+                <div class="health-resource-item">
+                    <div class="health-resource-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M2 7l4.41-4.41A2 2 0 017.83 2h8.34a2 2 0 011.42.59L22 7M2 17l4.41 4.41A2 2 0 007.83 22h8.34a2 2 0 001.42-.59L22 17M2 12h20"/>
+                        </svg>
+                    </div>
+                    <div class="health-resource-count">${ingresses}</div>
+                    <div class="health-resource-label">Ingresses</div>
+                    <div class="health-resource-status">&nbsp;</div>
+                </div>
+                
+                <div class="health-resource-item">
+                    <div class="health-resource-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><path d="M6 6h.01M6 18h.01"/>
+                        </svg>
+                    </div>
+                    <div class="health-resource-count">${jobs}</div>
+                    <div class="health-resource-label">Jobs</div>
+                    <div class="health-resource-status">${jobsSucceeded} succeeded</div>
+                </div>
+                
+                <div class="health-resource-item">
+                    <div class="health-resource-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                        </svg>
+                    </div>
+                    <div class="health-resource-count">${cronJobs}</div>
+                    <div class="health-resource-label">CronJobs</div>
+                    <div class="health-resource-status">${cronJobsSuspended} suspended</div>
+                </div>
             </div>
         `;
 
-        // 3. Deployment Health Table
-        if (data.deployment_health) {
-            html += `
-                <div class="health-card">
-                    <h3>🚀 Deployment Health</h3>
-                    <table class="resource-table">
-                        <thead>
-                            <tr>
-                                <th>Status</th>
-                                <th style="text-align: center; width: 120px;">Count</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>✅ Healthy</td>
-                                <td style="text-align: center;"><span class="badge-success">${data.deployment_health.healthy || 0}</span></td>
-                            </tr>
-                            <tr>
-                                <td>⚠️ Degraded</td>
-                                <td style="text-align: center;"><span class="badge-warning">${data.deployment_health.degraded || 0}</span></td>
-                            </tr>
-                            <tr>
-                                <td>❌ Critical</td>
-                                <td style="text-align: center;"><span class="badge-danger">${data.deployment_health.critical || 0}</span></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            `;
+        // === UNHEALTHY WORKLOADS ===
+        const unhealthyPods = [];
+        if (data.pods && Array.isArray(data.pods)) {
+            data.pods.forEach(pod => {
+                if (pod.status !== 'Running' || pod.ready === false) {
+                    unhealthyPods.push(pod);
+                }
+            });
         }
 
-        // 4. Service Health Table
-        if (data.service_health) {
+        if (unhealthyPods.length > 0) {
             html += `
-                <div class="health-card">
-                    <h3>🔌 Service Health</h3>
-                    <table class="resource-table">
-                        <thead>
-                            <tr>
-                                <th>Status</th>
-                                <th style="text-align: center; width: 120px;">Count</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>✅ With Endpoints</td>
-                                <td style="text-align: center;"><span class="badge-success">${data.service_health.with_endpoints || 0}</span></td>
-                            </tr>
-                            <tr>
-                                <td>⚠️ Without Endpoints</td>
-                                <td style="text-align: center;"><span class="badge-warning">${data.service_health.without_endpoints || 0}</span></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            `;
-        }
-
-        // 5. Cluster Events Table
-        if (data.cluster_events && data.cluster_events.length > 0) {
-            html += `
-                <div class="health-card">
-                    <h3>📋 Recent Cluster Events (${data.cluster_events.length})</h3>
-                    <table class="resource-table">
-                        <thead>
-                            <tr>
-                                <th style="width: 60px;">Type</th>
-                                <th>Reason</th>
-                                <th>Resource</th>
-                                <th>Message</th>
-                                <th style="width: 100px;">Count</th>
-                                <th style="width: 120px;">Time</th>
-                            </tr>
-                        </thead>
-                        <tbody>
+                <div style="margin-top: 24px;">
+                    <div class="unhealthy-header">
+                        <div class="unhealthy-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                                <line x1="12" y1="9" x2="12" y2="13"/>
+                                <line x1="12" y1="17" x2="12.01" y2="17"/>
+                            </svg>
+                        </div>
+                        <h3 class="unhealthy-title">Unhealthy Workloads</h3>
+                        <span class="unhealthy-count">${unhealthyPods.length}</span>
+                    </div>
+                    <div class="unhealthy-workloads-list">
             `;
 
-            data.cluster_events.slice(0, 15).forEach(event => {
-                const typeIcon = event.type === 'Warning' ? '⚠️' : 
-                               event.type === 'Error' ? '❌' : 'ℹ️';
+            unhealthyPods.slice(0, 10).forEach(pod => {
+                const statusClass = pod.status === 'Failed' ? 'status-failed' : 
+                                  pod.status === 'Pending' ? 'status-pending' : 'status-error';
+                const restartCount = pod.restart_count || 0;
+                const namespace = pod.namespace || currentNamespace;
                 
                 html += `
-                    <tr>
-                        <td style="text-align: center;">${typeIcon}</td>
-                        <td><strong>${event.reason || 'Event'}</strong></td>
-                        <td>${event.resource ? `<span class="badge-secondary">${event.resource}</span>` : '-'}</td>
-                        <td style="max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${event.message || ''}">${event.message || 'No details available'}</td>
-                        <td style="text-align: center;"><span class="badge-info">${event.count || 1}</span></td>
-                        <td><small class="text-muted">${event.time ? new Date(event.time).toLocaleString() : '-'}</small></td>
-                    </tr>
+                    <div class="unhealthy-workload-item ${statusClass}">
+                        <div class="workload-status-indicator"></div>
+                        <div class="workload-content">
+                            <div class="workload-header">
+                                <div class="workload-type">Pod</div>
+                                <div class="workload-name">${pod.name}</div>
+                                ${restartCount > 0 ? `<div class="workload-restart">RestartCount: ${restartCount}</div>` : ''}
+                                <div class="workload-time">${pod.age || '-'}</div>
+                            </div>
+                            <div class="workload-namespace">${namespace}</div>
+                        </div>
+                    </div>
                 `;
             });
 
-            html += '</tbody></table></div>';
+            html += '</div></div>';
         }
 
-        // 6. Issues section
+        // === CLUSTER EVENTS ===
+        if (data.cluster_events && data.cluster_events.length > 0) {
+            html += `
+                <div style="margin-top: 24px;">
+                    <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 12px; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.5px;">Recent Events</h3>
+                    <div class="health-events-list">
+            `;
+
+            data.cluster_events.slice(0, 10).forEach((event, idx) => {
+                const typeClass = event.type === 'Warning' ? 'event-warning' : 
+                                event.type === 'Error' ? 'event-error' : 'event-info';
+                const typeIcon = event.type === 'Warning' ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>` : 
+                               event.type === 'Error' ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>` : 
+                               `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`;
+                
+                html += `
+                    <div class="health-event-item ${typeClass}">
+                        <div class="event-icon">${typeIcon}</div>
+                        <div class="event-content">
+                            <div class="event-header">
+                                <span class="event-reason">${event.reason || 'Event'}</span>
+                                ${event.resource ? `<span class="event-resource">${event.resource}</span>` : ''}
+                                <span class="event-count">${event.count || 1}x</span>
+                                <span class="event-time">${event.time ? new Date(event.time).toLocaleString('en-US', {month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'}) : '-'}</span>
+                            </div>
+                            <div class="event-message">${event.message || 'No details available'}</div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += '</div></div>';
+        }
+
+        // === ISSUES SECTION ===
         if (data.issues && data.issues.length > 0) {
             html += `
-                <div class="health-card">
-                    <h3>⚠️ Issues Detected</h3>
-                    <table class="resource-table">
-                        <thead>
-                            <tr>
-                                <th>Type</th>
-                                <th>Message</th>
-                            </tr>
-                        </thead>
-                        <tbody>
+                <div style="margin-top: 24px;">
+                    <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 12px; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.5px;">Issues Detected</h3>
+                    <div style="display: grid; gap: 8px;">
             `;
 
             data.issues.forEach(issue => {
                 html += `
-                    <tr>
-                        <td><span class="badge-danger">${issue.type || 'Issue'}</span></td>
-                        <td>${issue.message || 'No details available'}</td>
-                    </tr>
+                    <div class="health-event-item event-error">
+                        <div class="event-icon">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+                            </svg>
+                        </div>
+                        <div class="event-content">
+                            <div class="event-header">
+                                <span class="event-reason">${issue.type || 'Issue'}</span>
+                            </div>
+                            <div class="event-message">${issue.message || 'No details available'}</div>
+                        </div>
+                    </div>
                 `;
             });
 
-            html += '</tbody></table></div>';
+            html += '</div></div>';
         } else {
             html += `
-                <div class="health-card" style="text-align: center; padding: 40px;">
-                    <div style="font-size: 48px; margin-bottom: 16px;">✅</div>
-                    <p style="color: var(--success-color); font-size: 16px; font-weight: 600; margin: 0;">No issues detected</p>
-                    <p style="color: var(--text-secondary); margin-top: 8px;">Your cluster is healthy</p>
+                <div class="health-success-card">
+                    <svg class="success-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <polyline points="8 12 11 15 16 9"/>
+                    </svg>
+                    <div class="success-title">All Systems Operational</div>
+                    <div class="success-subtitle">No issues detected in your cluster</div>
                 </div>
             `;
         }
@@ -1903,7 +1884,7 @@ async function loadClusterNodes() {
                         <span id="${nodeId}-icon" class="collapse-icon">▶</span>
                     </td>
                     <td>🖥️ ${node.name}</td>
-                    <td><span class="badge ${statusClass}">${node.ready ? 'Ready' : 'NotReady'}</span></td>
+                    <td><span class="badge ${statusClass}">${node.ready ? 'Ready' : 'Not Ready'}</span></td>
                     <td>${roles}</td>
                     <td>${node.kubelet_version || 'N/A'}</td>
                     <td><span class="badge-info">${node.pod_count || 0}</span></td>
@@ -2013,6 +1994,9 @@ async function loadCRDs() {
             return;
         }
 
+        // Store globally for detail panel access
+        window.crdsData = crds;
+
         // Update stats in resource-controls
         const apiGroups = [...new Set(crds.map(crd => crd.group))];
         const statsHtml = `
@@ -2039,7 +2023,6 @@ async function loadCRDs() {
             <table class="resource-table crd-table">
                 <thead>
                     <tr>
-                        <th style="width: 30px;"></th>
                         <th>Name</th>
                         <th>Group</th>
                         <th>Version(s)</th>
@@ -2051,15 +2034,10 @@ async function loadCRDs() {
         `;
 
         crds.forEach((crd, idx) => {
-            const crdId = `crd-${idx}`;
             const versions = crd.versions ? crd.versions.join(', ') : 'N/A';
-            const hasDetails = crd.versions && crd.versions.length > 0;
             
             html += `
-                <tr class="crd-row ${hasDetails ? 'expandable' : ''}" onclick="${hasDetails ? `toggleCRDDetails('${crdId}')` : ''}">
-                    <td class="expand-icon">
-                        ${hasDetails ? `<span id="${crdId}-icon" class="collapse-icon">▶</span>` : ''}
-                    </td>
+                <tr class="clickable-row" onclick="openDetailPanel('crdsDetails', 'CustomResourceDefinition', 'cluster', '${crd.name}', window.crdsData[${idx}])">
                     <td>⚙️ ${crd.name}</td>
                     <td><span class="badge-info">${crd.group || 'N/A'}</span></td>
                     <td><small>${versions}</small></td>
@@ -2067,18 +2045,6 @@ async function loadCRDs() {
                     <td>${crd.age || 'N/A'}</td>
                 </tr>
             `;
-
-            if (hasDetails) {
-                html += `
-                    <tr id="${crdId}-details" class="crd-details-row" style="display: none;">
-                        <td colspan="6">
-                            <div class="ingress-details-content">
-                                ${renderCRDDetails(crd)}
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            }
         });
 
         html += '</tbody></table>';
@@ -2244,6 +2210,189 @@ function toggleCRDDetails(crdId) {
 }
 
 /* ============================================
+   CRONJOBS & JOBS
+   ============================================ */
+
+async function loadCronJobsAndJobs() {
+    console.log('loadCronJobsAndJobs() called');
+    const container = document.getElementById('cronjobsContent');
+    if (!container) {
+        console.error('CronJobs container not found');
+        return;
+    }
+    container.innerHTML = '<div class="loading">Loading CronJobs...</div>';
+
+    try {
+        // Fetch cronjobs and pods in parallel
+        const [cronjobsResponse, podsResponse] = await Promise.all([
+            fetch(`/api/cronjobs/${currentNamespace}`),
+            fetch(`/api/pods/${currentNamespace}`)
+        ]);
+        
+        if (!cronjobsResponse.ok) {
+            throw new Error(`HTTP ${cronjobsResponse.status}: ${cronjobsResponse.statusText}`);
+        }
+        const cronjobs = await cronjobsResponse.json();
+        console.log('CronJobs API response:', cronjobs);
+
+        // Get pods to match with jobs
+        let pods = [];
+        if (podsResponse.ok) {
+            pods = await podsResponse.json();
+        }
+
+        // Handle null/empty response
+        if (!cronjobs || !Array.isArray(cronjobs) || cronjobs.length === 0) {
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon">⏰</div><p>No CronJobs found in this namespace</p></div>';
+            return;
+        }
+
+        // Match pods to jobs by name prefix (pod name starts with job name)
+        cronjobs.forEach(cj => {
+            if (cj.jobs && Array.isArray(cj.jobs)) {
+                cj.jobs.forEach(job => {
+                    const matchedPods = pods.filter(pod => 
+                        pod.name && job.name && pod.name.startsWith(job.name + '-')
+                    );
+                    job.pod_names = matchedPods.map(p => p.name);
+                    job.pod_statuses = matchedPods.map(p => ({ name: p.name, status: p.status }));
+                });
+            }
+        });
+
+        // Store globally for detail panel access
+        window.cronJobsData = cronjobs;
+        renderCronJobsTable(cronjobs, container);
+    } catch (error) {
+        console.error('Error loading CronJobs:', error);
+        container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error loading CronJobs</p><small>${error.message}</small></div>`;
+    }
+}
+
+function renderCronJobsTable(cronjobs, container) {
+    try {
+        const totalCronJobs = cronjobs.length;
+        const totalJobs = cronjobs.reduce((sum, cj) => sum + (cj.jobs ? cj.jobs.length : 0), 0);
+        const activeJobs = cronjobs.reduce((sum, cj) => sum + (cj.active_count || 0), 0);
+
+        if (totalCronJobs === 0) {
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon">⏰</div><p>No CronJobs found</p></div>';
+            return;
+        }
+
+        let html = `
+            <table class="resource-table cronjob-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Schedule</th>
+                        <th>Next Run</th>
+                        <th>Suspend</th>
+                        <th>Last Scheduled</th>
+                        <th>Active</th>
+                        <th>Age</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        cronjobs.forEach((cj, idx) => {
+            const suspendBadge = cj.suspend ? '<span class="badge-warning">Yes</span>' : '<span class="badge-success">No</span>';
+            const lastSchedule = cj.last_schedule_time ? new Date(cj.last_schedule_time).toLocaleString() : 'Never';
+            const nextRunIn = cj.next_run_in || '-';
+
+            html += `
+                <tr class="clickable-row" onclick="openDetailPanel('cronjobsDetails', 'CronJob', '${currentNamespace}', '${cj.name}', window.cronJobsData[${idx}])">
+                    <td>⏰ ${cj.name}</td>
+                    <td><code>${cj.schedule || '-'}</code></td>
+                    <td><span class="badge-info">${nextRunIn}</span></td>
+                    <td>${suspendBadge}</td>
+                    <td>${lastSchedule}</td>
+                    <td><span class="badge-info">${cj.active_count || 0}</span></td>
+                    <td>${cj.age || '-'}</td>
+                </tr>
+            `;
+        });
+
+        html += '</tbody></table>';
+        container.innerHTML = html;
+    } catch (renderError) {
+        console.error('Error rendering CronJobs table:', renderError);
+        container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error rendering CronJobs</p><small>${renderError.message}</small></div>`;
+    }
+}
+
+function renderJobsUnderCronJob(jobs) {
+    if (!jobs || jobs.length === 0) {
+        return '<div class="text-muted">No jobs found</div>';
+    }
+    
+    let html = `
+        <table class="resource-table" style="margin: 0; font-size: 0.85em;">
+            <thead>
+                <tr>
+                    <th>Status</th>
+                    <th>Job Name</th>
+                    <th>Completions</th>
+                    <th>Succeeded</th>
+                    <th>Failed</th>
+                    <th>Duration</th>
+                    <th>Age</th>
+                    <th>Pods</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    
+    jobs.forEach(job => {
+        const statusClass = job.status === 'Completed' ? 'badge-success' :
+                            job.status === 'Failed' ? 'badge-danger' :
+                            job.status === 'Active' ? 'badge-info' : 'badge-secondary';
+        
+        // Show pods with their statuses
+        let podsHtml = '<span class="text-muted">-</span>';
+        if (job.pod_statuses && job.pod_statuses.length > 0) {
+            podsHtml = job.pod_statuses.map(p => {
+                const podStatusClass = p.status === 'Running' ? 'badge-info' : 
+                                       p.status === 'Succeeded' ? 'badge-success' :
+                                       p.status === 'Failed' ? 'badge-danger' : 'badge-secondary';
+                return `<span class="${podStatusClass}" style="display: inline-block; margin: 2px; font-size: 0.8em;">${p.name}<br/>(${p.status})</span>`;
+            }).join('');
+        } else if (job.pod_names && job.pod_names.length > 0) {
+            podsHtml = job.pod_names.map(name => `<span class="badge-secondary" style="display: inline-block; margin: 2px;">${name}</span>`).join('');
+        }
+        
+        html += `
+            <tr>
+                <td><span class="${statusClass}">${job.status || '-'}</span></td>
+                <td><code>${job.name}</code></td>
+                <td>${job.completions ?? '-'}</td>
+                <td>${job.succeeded ?? '-'}</td>
+                <td>${job.failed ?? '-'}</td>
+                <td>${job.duration || '-'}</td>
+                <td>${job.age || '-'}</td>
+                <td style="max-width: 300px; word-wrap: break-word;">${podsHtml}</td>
+            </tr>
+        `;
+    });
+    
+    html += '</tbody></table>';
+    return html;
+}
+
+function toggleCronJobDetails(cronjobId) {
+    const detailsRow = document.getElementById(`${cronjobId}-details`);
+    const icon = document.getElementById(`${cronjobId}-icon`);
+
+    if (detailsRow && icon) {
+        const isVisible = detailsRow.style.display !== 'none';
+        detailsRow.style.display = isVisible ? 'none' : 'table-row';
+        icon.textContent = isVisible ? '▶' : '▼';
+        icon.classList.toggle('expanded', !isVisible);
+    }
+}
+
+/* ============================================
    RELEASES
    ============================================ */
 
@@ -2256,9 +2405,12 @@ async function loadReleases() {
         const releases = await response.json();
 
         if (releases.length === 0) {
-            container.innerHTML = '<p>No deployments found in this namespace</p>';
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon">🎯</div><p>No releases found in this namespace</p></div>';
             return;
         }
+
+        // Store globally for detail panel access
+        window.releasesData = releases;
 
         const calculateAge = (createdAt) => {
             const now = new Date();
@@ -2274,7 +2426,7 @@ async function loadReleases() {
         };
 
         let html = `
-            <table>
+            <table class="resource-table">
                 <thead>
                     <tr>
                         <th>Deployment</th>
@@ -2287,7 +2439,7 @@ async function loadReleases() {
                 <tbody>
         `;
 
-        releases.forEach((release) => {
+        releases.forEach((release, idx) => {
             const managedBy = release.helm_release ? 'Helm' : 'Manual';
             const version = release.version || release.helm_release?.app_version || '-';
             const age = calculateAge(release.created_at);
@@ -2295,11 +2447,11 @@ async function loadReleases() {
             const statusClass = status === 'deployed' || status === 'Running' ? 'badge-success' : 'badge-warning';
 
             html += `
-                <tr onclick="showReleaseDetails('${release.deployment_name}', '${release.namespace}')" style="cursor: pointer;">
-                    <td>${release.deployment_name}</td>
+                <tr class="clickable-row" onclick="openDetailPanel('releasesDetails', 'Release', '${release.namespace}', '${release.deployment_name}', window.releasesData[${idx}])">
+                    <td><span class="mono-text">${release.deployment_name}</span></td>
                     <td>${version}</td>
-                    <td>${managedBy}</td>
-                    <td><span class="badge ${statusClass}">${status}</span></td>
+                    <td><span class="badge-secondary">${managedBy}</span></td>
+                    <td><span class="${statusClass}">${status}</span></td>
                     <td>${age}</td>
                 </tr>
             `;
@@ -2308,12 +2460,11 @@ async function loadReleases() {
         html += `
                 </tbody>
             </table>
-            <div id="releaseDetails" style="margin-top: 20px;"></div>
         `;
 
         container.innerHTML = html;
     } catch (error) {
-        container.innerHTML = `<p style="color: var(--danger-color);">Error: ${error.message}</p>`;
+        container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error loading releases</p><small>${error.message}</small></div>`;
     }
 }
 
@@ -2375,6 +2526,8 @@ async function loadPVPVC() {
             return;
         }
 
+        // Store globally for detail panel access
+        window.pvpvcData = data;
         renderPVPVCTable(data, container);
     } catch (error) {
         container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error loading PV/PVC</p><small>${error.message}</small></div>`;
@@ -2419,7 +2572,6 @@ function renderPVPVCTable(data, container) {
             <table class="resource-table pvc-table">
                 <thead>
                     <tr>
-                        <th style="width: 30px;"></th>
                         <th>Name</th>
                         <th>Status</th>
                         <th>Storage</th>
@@ -2431,19 +2583,14 @@ function renderPVPVCTable(data, container) {
         `;
 
         data.pvcs.forEach((pvc, idx) => {
-            const pvcId = `pvc-${idx}`;
             const statusClass = pvc.status === 'Bound' ? 'badge-success' :
                 pvc.status === 'Pending' ? 'badge-warning' : 'badge-danger';
             const storage = pvc.actual_storage || pvc.requested_storage || '-';
             const accessModes = (pvc.access_modes || []).join(', ') || '-';
             const podCount = pvc.pod_count || 0;
-            const hasDetails = (pvc.pod_details && pvc.pod_details.length > 0) || pvc.pv_details;
 
             html += `
-                <tr class="pvc-row ${hasDetails ? 'expandable' : ''}" onclick="${hasDetails ? `togglePVCDetails('${pvcId}')` : ''}">
-                    <td class="expand-icon">
-                        ${hasDetails ? `<span id="${pvcId}-icon" class="collapse-icon">▶</span>` : ''}
-                    </td>
+                <tr class="clickable-row" onclick="openDetailPanel('pvpvcDetails', 'PersistentVolumeClaim', '${currentNamespace}', '${pvc.name}', window.pvpvcData.pvcs[${idx}])">
                     <td>💾 ${pvc.name}</td>
                     <td><span class="badge ${statusClass}">${pvc.status}</span></td>
                     <td>${storage}</td>
@@ -2451,19 +2598,6 @@ function renderPVPVCTable(data, container) {
                     <td><span class="badge-${podCount > 0 ? 'success' : 'secondary'}">${podCount} pod${podCount !== 1 ? 's' : ''}</span></td>
                 </tr>
             `;
-
-            // Details row
-            if (hasDetails) {
-                html += `
-                    <tr id="${pvcId}-details" class="pvc-details-row" style="display: none;">
-                        <td colspan="6">
-                            <div class="ingress-details-content">
-                                ${renderPVCDetails(pvc)}
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            }
         });
 
         html += `
@@ -2784,7 +2918,9 @@ async function loadAllResources() {
                     <td><span class="badge-info">${status}</span></td>
                     <td><span class="${healthBadge}">${healthEmoji} ${healthScore}%</span></td>
                     <td>
-                        <button class="action-btn" onclick="event.stopPropagation(); loadResourceDetails('${item.resource_type}', '${item.namespace}', '${item.name}')" title="View Details">👁️</button>
+                        <button class="action-btn" onclick="event.stopPropagation(); loadResourceDetails('${item.resource_type}', '${item.namespace}', '${item.name}')" title="View Details">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" style="vertical-align:middle;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        </button>
                     </td>
                 </tr>
             `;
@@ -2837,12 +2973,12 @@ async function loadResourceDetails(resourceType, namespace, name) {
         const statusColor = getStatusColor(resource.health_score);
 
         let html = `
+            <div class="details-resizer"></div>
             <div class="details-header">
-                <button class="close-details" onclick="closeResourceDetails()">×</button>
-                <div class="details-title">
+                <div class="details-title-section">
                     <span class="details-icon">${healthEmoji}</span>
-                    <div>
-                        <h3>${resource.name}</h3>
+                    <div class="details-title-content">
+                        <h3 class="details-name">${resource.name}</h3>
                         <span class="details-subtitle">${resourceType} in ${resource.namespace}</span>
                     </div>
                 </div>
@@ -2854,6 +2990,7 @@ async function loadResourceDetails(resourceType, namespace, name) {
                         ${resource.status}
                     </span>
                 </div>
+                <button class="close-details" onclick="closeResourceDetails()">×</button>
             </div>
             <div class="details-body">
                 ${formatDetails(resource.details)}
@@ -2868,7 +3005,7 @@ async function loadResourceDetails(resourceType, namespace, name) {
                 relGroups[rel.relationship_type].push(rel);
             });
 
-            html += '<div class="details-section"><h4>🔗 Relationships</h4><div class="relationships-tree">';
+            html += '<div class="details-section"><h4 class="section-title"><span class="section-icon">🔗</span>Relationships</h4><div class="relationships-tree">';
 
             Object.keys(relGroups).forEach(relType => {
                 html += `<div class="relationship-group">`;
@@ -2878,18 +3015,17 @@ async function loadResourceDetails(resourceType, namespace, name) {
                     const targetType = rel.target_type || 'Resource';
                     const targetNamespace = rel.target_namespace || resource.namespace;
                     const icon = rel.icon || '→';
+                    const canExpand = isExpandableResourceType(targetType);
                     
                     html += `
-                        <div class="relationship-item expandable" data-type="${targetType}" data-namespace="${targetNamespace}" data-name="${resourceName}">
+                        <div class="relationship-item ${canExpand ? 'expandable' : 'leaf'}" data-type="${targetType}" data-namespace="${targetNamespace}" data-name="${resourceName}">
                             <div class="rel-content">
-                                <span class="rel-toggle">▶</span>
+                                ${canExpand ? '<span class="rel-toggle">▶</span>' : '<span class="rel-leaf-dot">•</span>'}
                                 <span class="rel-icon">${icon}</span>
                                 <span class="rel-name">${resourceName}</span>
                                 <span class="rel-type-badge">${targetType}</span>
                             </div>
-                            <div class="rel-children" style="display: none;">
-                                <div class="loading-small">Loading...</div>
-                            </div>
+                            ${canExpand ? '<div class="rel-children" style="display: none;"><div class="loading-small">Loading...</div></div>' : ''}
                         </div>
                     `;
                 });
@@ -2901,16 +3037,27 @@ async function loadResourceDetails(resourceType, namespace, name) {
 
         html += '</div>';
         container.innerHTML = html;
+        
+        // Initialize resizer
+        initializeDetailsResizer();
     } catch (error) {
         container.innerHTML = `
+            <div class="details-resizer"></div>
             <div class="details-header">
+                <div class="details-title-section">
+                    <div class="details-title-content">
+                        <h3 class="details-name">Error Loading Details</h3>
+                    </div>
+                </div>
                 <button class="close-details" onclick="closeResourceDetails()">×</button>
-                <h3>Error Loading Details</h3>
             </div>
             <div class="details-body">
                 <p style="color: var(--danger-color);">${error.message}</p>
             </div>
         `;
+        
+        // Initialize resizer even on error
+        initializeDetailsResizer();
     }
 }
 
@@ -2920,6 +3067,49 @@ function closeResourceDetails() {
     setTimeout(() => {
         container.innerHTML = '';
     }, 300);
+}
+
+// Initialize resizer for resource details panel
+function initializeDetailsResizer() {
+    const resizer = document.querySelector('.details-resizer');
+    const panel = document.getElementById('resourceDetails');
+    
+    if (!resizer || !panel) return;
+    
+    let isResizing = false;
+    let startX = 0;
+    let startWidth = 0;
+    
+    resizer.addEventListener('mousedown', (e) => {
+        isResizing = true;
+        startX = e.clientX;
+        startWidth = panel.offsetWidth;
+        resizer.classList.add('resizing');
+        document.body.style.cursor = 'ew-resize';
+        document.body.style.userSelect = 'none';
+        e.preventDefault();
+    });
+    
+    document.addEventListener('mousemove', (e) => {
+        if (!isResizing) return;
+        
+        const deltaX = startX - e.clientX;
+        const newWidth = startWidth + deltaX;
+        
+        // Enforce min and max width
+        if (newWidth >= 350 && newWidth <= 800) {
+            panel.style.width = `${newWidth}px`;
+        }
+    });
+    
+    document.addEventListener('mouseup', () => {
+        if (isResizing) {
+            isResizing = false;
+            resizer.classList.remove('resizing');
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+        }
+    });
 }
 
 // Handle relationship expansion
@@ -2933,10 +3123,15 @@ document.addEventListener('click', async function(e) {
     
     if (isExpanded) {
         toggle.textContent = '▶';
+        toggle.classList.remove('loading');
         children.style.display = 'none';
     } else {
-        toggle.textContent = '▼';
+        // Show loading state on toggle
+        toggle.classList.add('loading');
+        toggle.textContent = '⟳';
         children.style.display = 'block';
+        // Scroll the expanded item into view so user can see the content
+        relItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         
         // Load relationships if not already loaded
         if (children.querySelector('.loading-small')) {
@@ -2982,28 +3177,33 @@ document.addEventListener('click', async function(e) {
                         const targetType = rel.target_type || rel.resource_type || 'Resource';
                         const targetNamespace = rel.target_namespace || namespace;
                         const icon = rel.icon || '→';
+                        const canExpand = isExpandableResourceType(targetType);
                         
                         html += `
-                            <div class="relationship-item expandable nested" data-type="${targetType}" data-namespace="${targetNamespace}" data-name="${resourceName}">
+                            <div class="relationship-item ${canExpand ? 'expandable' : 'leaf'} nested" data-type="${targetType}" data-namespace="${targetNamespace}" data-name="${resourceName}">
                                 <div class="rel-content">
-                                    <span class="rel-toggle">▶</span>
+                                    ${canExpand ? '<span class="rel-toggle">▶</span>' : '<span class="rel-leaf-dot">•</span>'}
                                     <span class="rel-icon">${icon}</span>
                                     <span class="rel-name">${resourceName}</span>
                                     <span class="rel-type-badge">${targetType}</span>
                                 </div>
-                                <div class="rel-children" style="display: none;">
-                                    <div class="loading-small">Loading...</div>
-                                </div>
+                                ${canExpand ? '<div class="rel-children" style="display: none;"><div class="loading-small">Loading...</div></div>' : ''}
                             </div>
                         `;
                     });
                     children.innerHTML = html;
+                    // Scroll to show newly loaded children
+                    children.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 } else {
                     children.innerHTML = '<div class="no-relationships">No further relationships</div>';
                 }
             } catch (error) {
                 console.error('Failed to load relationships:', error);
                 children.innerHTML = `<div class="error-small">Failed to load: ${error.message}</div>`;
+            } finally {
+                // Remove loading state and show expanded arrow
+                toggle.classList.remove('loading');
+                toggle.textContent = '▼';
             }
         }
     }
@@ -3025,6 +3225,15 @@ function getResourceIcon(resourceType) {
     return icons[resourceType] || '📄';
 }
 
+// Resource types that have meaningful further relationships worth expanding
+function isExpandableResourceType(type) {
+    const expandable = new Set([
+        'Pod', 'Deployment', 'StatefulSet', 'DaemonSet',
+        'Service', 'Ingress', 'Job', 'CronJob', 'ReplicaSet'
+    ]);
+    return expandable.has(type);
+}
+
 function getStatusColor(healthScore) {
     if (healthScore >= 80) return '#AAD94C';
     if (healthScore >= 60) return '#FFB454';
@@ -3042,21 +3251,21 @@ function formatDetails(details) {
     );
 
     if (regularFields.length > 0) {
-        html += '<div class="info-section"><h4>📋 Basic Information</h4><div class="info-grid">';
+        html += '<div class="info-section"><h4 class="section-title"><span class="section-icon">📋</span>Basic Information</h4><div class="info-grid">';
         regularFields.forEach(key => {
             const value = details[key];
             if (typeof value !== 'object') {
                 const displayKey = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-                html += `<div class="info-item"><strong>${displayKey}</strong><div>${value}</div></div>`;
+                html += `<div class="info-item"><label class="info-label">${displayKey}</label><span class="info-value">${value}</span></div>`;
             }
         });
         html += '</div></div>';
     }
 
     if (details.labels && Object.keys(details.labels).length > 0) {
-        html += '<div class="info-section"><h4>🏷️ Labels</h4><div style="display: flex; flex-wrap: wrap; gap: 8px;">';
+        html += '<div class="info-section"><h4 class="section-title"><span class="section-icon">🏷️</span>Labels</h4><div class="labels-container">';
         Object.keys(details.labels).forEach(key => {
-            html += `<span class="badge badge-info" style="font-size: 11px;">${key}: ${details.labels[key]}</span>`;
+            html += `<span class="label-badge">${key}: ${details.labels[key]}</span>`;
         });
         html += '</div></div>';
     }

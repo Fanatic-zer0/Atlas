@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"ajna/internal/app"
-	"ajna/internal/k8s"
+	"atlas/internal/app"
+	"atlas/internal/k8s"
 
 	"github.com/gorilla/mux"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

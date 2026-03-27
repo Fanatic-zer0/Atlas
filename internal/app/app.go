@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"ajna/internal/k8s"
+	"atlas/internal/k8s"
 
 	"golang.org/x/sync/singleflight"
 )

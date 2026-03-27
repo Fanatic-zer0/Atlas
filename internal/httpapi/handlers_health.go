@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"ajna/internal/app"
+	"atlas/internal/app"
 )
 
 // healthCheck provides a simple liveness probe
