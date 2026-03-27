@@ -72,7 +72,7 @@ Access dashboard at `http://localhost:8080`
 
 ## 🐳 Docker Deployment
 
-\`\`\`dockerfile
+```dockerfile
 FROM golang:1.21-alpine AS builder
 WORKDIR /app
 COPY . .
@@ -85,7 +85,7 @@ COPY --from=builder /app/atlas .
 COPY --from=builder /app/ui ./ui
 EXPOSE 8080
 CMD ["./atlas"]
-\`\`\`
+```
 
 ## 🛡️ Security & RBAC
 
@@ -95,7 +95,7 @@ CMD ["./atlas"]
 
 **Minimal RBAC:**
 
-\`\`\`yaml
+```yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -104,7 +104,7 @@ rules:
 - apiGroups: ["", "apps", "batch", "networking.k8s.io", "apiextensions.k8s.io"]
   resources: ["*"]
   verbs: ["get", "list"]
-\`\`\`
+```
 
 ## 📈 Performance
 
@@ -122,13 +122,13 @@ rules:
 
 ## 🔧 Development
 
-\`\`\`bash
+```bash
 make deps      # Install dependencies
 make build     # Build binary
 make run       # Run locally
 make test      # Run tests
 make fmt       # Format code
-\`\`\`
+```
 
 ## 📝 License
 
