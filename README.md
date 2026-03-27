@@ -24,7 +24,7 @@
 ### Installation
 
 \`\`\`bash
-git clone https://github.com/yourusername/atlas.git
+git clone https://github.com/Fanatic-zer0/atlas.git
 cd atlas
 make build
 ./bin/atlas
@@ -140,4 +140,3 @@ MIT License
 **Made with ❤️ for SREs and Platform Engineers**
 
 *Atlas - Supporting your entire Kubernetes world.*
-EOF
