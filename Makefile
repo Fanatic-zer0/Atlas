@@ -37,9 +37,26 @@ fmt:
 lint:
 	golangci-lint run
 
-# Docker build
+# Docker build (single-arch, current platform)
 docker-build:
 	docker build -t atlas:latest .
+
+# Multi-arch build — pushes to a registry, set IMAGE to override (e.g. make docker-buildx IMAGE=myrepo/atlas:latest)
+IMAGE ?= atlas:latest
+docker-buildx:
+	docker buildx build \
+		--platform linux/amd64,linux/arm64 \
+		--tag $(IMAGE) \
+		--push \
+		.
+
+# Multi-arch build — load into local Docker daemon (single platform only, useful for local testing)
+docker-buildx-load:
+	docker buildx build \
+		--platform linux/$(shell go env GOARCH) \
+		--tag atlas:latest \
+		--load \
+		.
 
 # Docker run (uses current kubeconfig)
 docker-run:
