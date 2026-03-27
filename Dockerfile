@@ -1,5 +1,9 @@
-# Build stage
-FROM golang:1.25-alpine AS builder
+# Build stage — always runs on the host's native arch for speed
+FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS builder
+
+# Populated automatically by buildx
+ARG TARGETOS
+ARG TARGETARCH
 
 WORKDIR /app
 
@@ -13,8 +17,9 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build the binary
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /app/bin/ajna ./cmd/ajna
+# Build the binary — cross-compile for the target platform
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+    go build -ldflags="-w -s" -o /app/bin/atlas ./cmd/atlas
 
 # Runtime stage
 FROM alpine:3.19
@@ -25,7 +30,7 @@ WORKDIR /app
 RUN apk add --no-cache ca-certificates
 
 # Copy binary from builder
-COPY --from=builder /app/bin/ajna /app/ajna
+COPY --from=builder /app/bin/atlas /app/atlas
 
 # Copy UI static files
 COPY --from=builder /app/ui /app/ui
@@ -41,4 +46,4 @@ EXPOSE 8080
 ENV PORT=8080
 
 # Run the application
-ENTRYPOINT ["/app/ajna"]
+ENTRYPOINT ["/app/atlas"]
