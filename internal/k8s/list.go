@@ -455,6 +455,77 @@ func GetHealthDashboard(ctx context.Context, cs *kubernetes.Clientset, namespace
 		resp.Summary.Ingresses = len(ingList.Items)
 	}
 
+	// Get statefulsets
+	ssList, err := cs.AppsV1().StatefulSets(namespace).List(ctx, metav1.ListOptions{})
+	if err == nil {
+		resp.Summary.StatefulSets = len(ssList.Items)
+		for _, ss := range ssList.Items {
+			desired := int32(1)
+			if ss.Spec.Replicas != nil {
+				desired = *ss.Spec.Replicas
+			}
+			if ss.Status.ReadyReplicas >= desired {
+				resp.Summary.StatefulSetsReady++
+			}
+		}
+	}
+
+	// Get daemonsets
+	dsList, err := cs.AppsV1().DaemonSets(namespace).List(ctx, metav1.ListOptions{})
+	if err == nil {
+		resp.Summary.DaemonSets = len(dsList.Items)
+		for _, ds := range dsList.Items {
+			if ds.Status.NumberReady >= ds.Status.DesiredNumberScheduled {
+				resp.Summary.DaemonSetsReady++
+			}
+		}
+	}
+
+	// Get jobs
+	jobList, err := cs.BatchV1().Jobs(namespace).List(ctx, metav1.ListOptions{})
+	if err == nil {
+		resp.Summary.Jobs = len(jobList.Items)
+		for _, job := range jobList.Items {
+			if job.Status.Succeeded > 0 {
+				resp.Summary.JobsSucceeded++
+			}
+		}
+	}
+
+	// Get cronjobs
+	cjList, err := cs.BatchV1().CronJobs(namespace).List(ctx, metav1.ListOptions{})
+	if err == nil {
+		resp.Summary.CronJobs = len(cjList.Items)
+		for _, cj := range cjList.Items {
+			if cj.Spec.Suspend != nil && *cj.Spec.Suspend {
+				resp.Summary.CronJobsSuspended++
+			}
+		}
+	}
+
+	// Get configmaps
+	cmList, err := cs.CoreV1().ConfigMaps(namespace).List(ctx, metav1.ListOptions{})
+	if err == nil {
+		resp.Summary.ConfigMaps = len(cmList.Items)
+	}
+
+	// Get secrets
+	secList, err := cs.CoreV1().Secrets(namespace).List(ctx, metav1.ListOptions{})
+	if err == nil {
+		resp.Summary.Secrets = len(secList.Items)
+	}
+
+	// Get PVCs
+	pvcList, err := cs.CoreV1().PersistentVolumeClaims(namespace).List(ctx, metav1.ListOptions{})
+	if err == nil {
+		resp.Summary.PVCs = len(pvcList.Items)
+		for _, pvc := range pvcList.Items {
+			if pvc.Status.Phase == corev1.ClaimBound {
+				resp.Summary.PVCsBound++
+			}
+		}
+	}
+
 	// Get services
 	svcList, err := cs.CoreV1().Services(namespace).List(ctx, metav1.ListOptions{})
 	if err == nil {

@@ -83,11 +83,23 @@ type HealthResponse struct {
 }
 
 type HealthSummary struct {
-	Nodes       int `json:"nodes"`
-	Ingresses   int `json:"ingresses"`
-	Services    int `json:"services"`
-	Deployments int `json:"deployments"`
-	Pods        int `json:"pods"`
+	Nodes             int `json:"nodes"`
+	Ingresses         int `json:"ingresses"`
+	Services          int `json:"services"`
+	Deployments       int `json:"deployments"`
+	Pods              int `json:"pods"`
+	StatefulSets      int `json:"statefulsets"`
+	StatefulSetsReady int `json:"statefulsets_ready"`
+	DaemonSets        int `json:"daemonsets"`
+	DaemonSetsReady   int `json:"daemonsets_ready"`
+	Jobs              int `json:"jobs"`
+	JobsSucceeded     int `json:"jobs_succeeded"`
+	CronJobs          int `json:"cronjobs"`
+	CronJobsSuspended int `json:"cronjobs_suspended"`
+	ConfigMaps        int `json:"configmaps"`
+	Secrets           int `json:"secrets"`
+	PVCs              int `json:"pvcs"`
+	PVCsBound         int `json:"pvcs_bound"`
 }
 
 type NodeInfo struct {

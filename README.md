@@ -23,11 +23,12 @@
 
 ### Installation
 
-```bash
-git clone https://github.com/Fanatic-zer0/atlas.git
-cd atlas && make build
+\`\`\`bash
+git clone https://github.com/yourusername/atlas.git
+cd atlas
+make build
 ./bin/atlas
-```
+\`\`\`
 
 Access dashboard at `http://localhost:8080`
 
@@ -72,20 +73,87 @@ Access dashboard at `http://localhost:8080`
 
 ## 🐳 Docker Deployment
 
-```dockerfile
-FROM golang:1.21-alpine AS builder
-WORKDIR /app
-COPY . .
-RUN go build -o atlas ./cmd/atlas
+### Build
 
-FROM alpine:latest
-RUN apk --no-cache add ca-certificates
-WORKDIR /root/
-COPY --from=builder /app/atlas .
-COPY --from=builder /app/ui ./ui
-EXPOSE 8080
-CMD ["./atlas"]
+```bash
+# Single-arch (current platform)
+make docker-build
+
+# Multi-arch (linux/amd64 + linux/arm64) — requires a registry
+make docker-buildx IMAGE=yourrepo/atlas:latest
+
+# Multi-arch local test build (current arch only, no registry needed)
+make docker-buildx-load
 ```
+
+### Run with a kubeconfig file
+
+Mount your local kubeconfig into the container and point `KUBECONFIG` at it:
+
+```bash
+make docker-run
+```
+
+Which expands to:
+
+```bash
+docker run -p 8080:8080 \
+  -v ~/.kube/config:/home/appuser/.kube/config:ro \
+  -e KUBECONFIG=/home/appuser/.kube/config \
+  atlas:latest
+```
+
+> **Tip:** If your kubeconfig references local certificate files (e.g. `certificate-authority: /Users/you/...`), use embedded credentials instead (`certificate-authority-data` in base64). EKS, GKE, and AKS kubeconfigs typically do this already.
+
+---
+
+### 3. Authentication
+
+Atlas has **no built-in authentication**. For multi-user access, place an authenticating reverse proxy in front of it. Two common options:
+
+#### Option A — oauth2-proxy (SSO via Google / GitHub / OIDC)
+
+```yaml
+# Add to your Ingress annotations (nginx example)
+nginx.ingress.kubernetes.io/auth-url: "https://oauth2-proxy.monitoring.svc/oauth2/auth"
+nginx.ingress.kubernetes.io/auth-signin: "https://atlas.example.com/oauth2/start?rd=$escaped_request_uri"
+```
+
+Deploy [oauth2-proxy](https://github.com/oauth2-proxy/oauth2-proxy) as a sidecar or separate deployment, configured for your identity provider (Google Workspace, GitHub Org, Okta, etc.).
+
+#### Option B — Basic auth via Ingress
+
+```bash
+# Create htpasswd secret
+htpasswd -c auth admin
+kubectl create secret generic atlas-basic-auth --from-file=auth -n monitoring
+```
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: atlas
+  namespace: monitoring
+  annotations:
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: atlas-basic-auth
+    nginx.ingress.kubernetes.io/auth-realm: "Atlas — Kubernetes Dashboard"
+spec:
+  rules:
+  - host: atlas.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: atlas
+            port:
+              number: 80
+```
+
+> For production, Option A (SSO) is strongly preferred — it ties access to your existing identity provider and supports audit logging.
 
 ## 🛡️ Security & RBAC
 

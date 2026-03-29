@@ -16,6 +16,15 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
+// resolveNamespace converts the frontend sentinel "_all" to an empty string,
+// which the Kubernetes client interprets as all-namespaces.
+func resolveNamespace(ns string) string {
+	if ns == "_all" {
+		return ""
+	}
+	return ns
+}
+
 func formatAge(d time.Duration) string {
 	days := int(d.Hours() / 24)
 	hours := int(d.Hours()) % 24
@@ -229,17 +238,131 @@ func getDeploymentStatus(dep *appsv1.Deployment) string {
 }
 
 func buildPodDetails(pod *corev1.Pod, application *app.App, ctx context.Context) map[string]interface{} {
+	// Build init containers information
+	initContainers := []map[string]interface{}{}
+	for _, c := range pod.Spec.InitContainers {
+		initContainer := map[string]interface{}{
+			"name":    c.Name,
+			"image":   c.Image,
+			"command": c.Command,
+			"args":    c.Args,
+		}
+
+		// Add ports
+		if len(c.Ports) > 0 {
+			ports := []map[string]interface{}{}
+			for _, p := range c.Ports {
+				ports = append(ports, map[string]interface{}{
+					"name":           p.Name,
+					"container_port": p.ContainerPort,
+					"protocol":       string(p.Protocol),
+				})
+			}
+			initContainer["ports"] = ports
+		}
+
+		// Add resource requirements
+		if c.Resources.Requests != nil || c.Resources.Limits != nil {
+			resources := map[string]interface{}{}
+			if c.Resources.Requests != nil {
+				requests := map[string]string{}
+				if cpu, ok := c.Resources.Requests["cpu"]; ok {
+					requests["cpu"] = cpu.String()
+				}
+				if mem, ok := c.Resources.Requests["memory"]; ok {
+					requests["memory"] = mem.String()
+				}
+				resources["requests"] = requests
+			}
+			if c.Resources.Limits != nil {
+				limits := map[string]string{}
+				if cpu, ok := c.Resources.Limits["cpu"]; ok {
+					limits["cpu"] = cpu.String()
+				}
+				if mem, ok := c.Resources.Limits["memory"]; ok {
+					limits["memory"] = mem.String()
+				}
+				resources["limits"] = limits
+			}
+			initContainer["resources"] = resources
+		}
+		initContainers = append(initContainers, initContainer)
+	}
+
+	// Build init container statuses
+	initContainerStatuses := []map[string]interface{}{}
+	for _, cs := range pod.Status.InitContainerStatuses {
+		status := map[string]interface{}{
+			"name":          cs.Name,
+			"ready":         cs.Ready,
+			"restart_count": cs.RestartCount,
+		}
+		if cs.State.Running != nil {
+			status["state"] = "Running"
+		} else if cs.State.Waiting != nil {
+			status["state"] = "Waiting"
+			status["reason"] = cs.State.Waiting.Reason
+			status["message"] = cs.State.Waiting.Message
+		} else if cs.State.Terminated != nil {
+			if cs.State.Terminated.ExitCode == 0 {
+				status["state"] = "Completed"
+			} else {
+				status["state"] = "Failed"
+			}
+			status["exit_code"] = cs.State.Terminated.ExitCode
+			status["reason"] = cs.State.Terminated.Reason
+			status["message"] = cs.State.Terminated.Message
+		}
+		initContainerStatuses = append(initContainerStatuses, status)
+	}
+
+	// Build main containers information
 	containers := []map[string]interface{}{}
 	for _, c := range pod.Spec.Containers {
 		container := map[string]interface{}{
-			"name":  c.Name,
-			"image": c.Image,
+			"name":    c.Name,
+			"image":   c.Image,
+			"command": c.Command,
+			"args":    c.Args,
 		}
-		if c.Resources.Requests != nil || c.Resources.Limits != nil {
-			container["resources"] = map[string]interface{}{
-				"requests": c.Resources.Requests,
-				"limits":   c.Resources.Limits,
+
+		// Add ports
+		if len(c.Ports) > 0 {
+			ports := []map[string]interface{}{}
+			for _, p := range c.Ports {
+				ports = append(ports, map[string]interface{}{
+					"name":           p.Name,
+					"container_port": p.ContainerPort,
+					"protocol":       string(p.Protocol),
+				})
 			}
+			container["ports"] = ports
+		}
+
+		// Add resource requirements
+		if c.Resources.Requests != nil || c.Resources.Limits != nil {
+			resources := map[string]interface{}{}
+			if c.Resources.Requests != nil {
+				requests := map[string]string{}
+				if cpu, ok := c.Resources.Requests["cpu"]; ok {
+					requests["cpu"] = cpu.String()
+				}
+				if mem, ok := c.Resources.Requests["memory"]; ok {
+					requests["memory"] = mem.String()
+				}
+				resources["requests"] = requests
+			}
+			if c.Resources.Limits != nil {
+				limits := map[string]string{}
+				if cpu, ok := c.Resources.Limits["cpu"]; ok {
+					limits["cpu"] = cpu.String()
+				}
+				if mem, ok := c.Resources.Limits["memory"]; ok {
+					limits["memory"] = mem.String()
+				}
+				resources["limits"] = limits
+			}
+			container["resources"] = resources
 		}
 		containers = append(containers, container)
 	}
@@ -250,21 +373,22 @@ func buildPodDetails(pod *corev1.Pod, application *app.App, ctx context.Context)
 			"name":          cs.Name,
 			"ready":         cs.Ready,
 			"restart_count": cs.RestartCount,
+			"image":         cs.Image,
 		}
 		if cs.State.Running != nil {
-			status["state_info"] = map[string]interface{}{"state": "running"}
+			status["state"] = "Running"
+			if cs.State.Running.StartedAt.Time.Unix() > 0 {
+				status["started_at"] = cs.State.Running.StartedAt.Format("2006-01-02 15:04:05")
+			}
 		} else if cs.State.Waiting != nil {
-			status["state_info"] = map[string]interface{}{
-				"state":   "waiting",
-				"reason":  cs.State.Waiting.Reason,
-				"message": cs.State.Waiting.Message,
-			}
+			status["state"] = "Waiting"
+			status["reason"] = cs.State.Waiting.Reason
+			status["message"] = cs.State.Waiting.Message
 		} else if cs.State.Terminated != nil {
-			status["state_info"] = map[string]interface{}{
-				"state":   "terminated",
-				"reason":  cs.State.Terminated.Reason,
-				"message": cs.State.Terminated.Message,
-			}
+			status["state"] = "Terminated"
+			status["exit_code"] = cs.State.Terminated.ExitCode
+			status["reason"] = cs.State.Terminated.Reason
+			status["message"] = cs.State.Terminated.Message
 		}
 		containerStatuses = append(containerStatuses, status)
 	}
@@ -272,31 +396,74 @@ func buildPodDetails(pod *corev1.Pod, application *app.App, ctx context.Context)
 	conditions := []map[string]interface{}{}
 	for _, c := range pod.Status.Conditions {
 		conditions = append(conditions, map[string]interface{}{
-			"type":    string(c.Type),
-			"status":  string(c.Status),
-			"reason":  c.Reason,
-			"message": c.Message,
+			"type":               string(c.Type),
+			"status":             string(c.Status),
+			"reason":             c.Reason,
+			"message":            c.Message,
+			"last_transition_at": c.LastTransitionTime.Format("2006-01-02 15:04:05"),
 		})
 	}
 
+	// Extract app info from labels/annotations
+	appInfo := map[string]string{}
+	if appName, ok := pod.Labels["app"]; ok {
+		appInfo["app_name"] = appName
+	} else if appName, ok := pod.Labels["app.kubernetes.io/name"]; ok {
+		appInfo["app_name"] = appName
+	}
+	if version, ok := pod.Labels["version"]; ok {
+		appInfo["version"] = version
+	} else if version, ok := pod.Labels["app.kubernetes.io/version"]; ok {
+		appInfo["version"] = version
+	}
+	if component, ok := pod.Labels["component"]; ok {
+		appInfo["component"] = component
+	} else if component, ok := pod.Labels["app.kubernetes.io/component"]; ok {
+		appInfo["component"] = component
+	}
+
 	details := map[string]interface{}{
-		"node_name":          pod.Spec.NodeName,
-		"pod_ip":             pod.Status.PodIP,
-		"host_ip":            pod.Status.HostIP,
-		"labels":             pod.Labels,
-		"containers":         containers,
-		"container_statuses": containerStatuses,
-		"conditions":         conditions,
+		"phase":                   string(pod.Status.Phase),
+		"node_name":               pod.Spec.NodeName,
+		"pod_ip":                  pod.Status.PodIP,
+		"host_ip":                 pod.Status.HostIP,
+		"qos_class":               string(pod.Status.QOSClass),
+		"service_account":         pod.Spec.ServiceAccountName,
+		"restart_policy":          string(pod.Spec.RestartPolicy),
+		"labels":                  pod.Labels,
+		"annotations":             pod.Annotations,
+		"init_containers":         initContainers,
+		"init_container_statuses": initContainerStatuses,
+		"containers":              containers,
+		"container_statuses":      containerStatuses,
+		"conditions":              conditions,
+		"app_info":                appInfo,
+	}
+
+	// Add creation timestamp
+	if !pod.CreationTimestamp.Time.IsZero() {
+		details["created_at"] = pod.CreationTimestamp.Format("2006-01-02 15:04:05")
+	}
+
+	// Calculate ready containers
+	readyCount := 0
+	totalCount := len(pod.Spec.Containers)
+	for _, cs := range pod.Status.ContainerStatuses {
+		if cs.Ready {
+			readyCount++
+		}
 	}
 
 	return map[string]interface{}{
-		"name":          pod.Name,
-		"namespace":     pod.Namespace,
-		"resource_type": "Pod",
-		"status":        string(pod.Status.Phase),
-		"health_score":  calculatePodHealth(pod),
-		"details":       details,
-		"relationships": buildPodRelationships(pod, application, ctx),
+		"name":             pod.Name,
+		"namespace":        pod.Namespace,
+		"resource_type":    "Pod",
+		"status":           string(pod.Status.Phase),
+		"health_score":     calculatePodHealth(pod),
+		"ready_containers": readyCount,
+		"total_containers": totalCount,
+		"details":          details,
+		"relationships":    buildPodRelationships(pod, application, ctx),
 	}
 }
 
@@ -857,6 +1024,20 @@ func buildDaemonSetRelationships(ds *appsv1.DaemonSet, application *app.App, ctx
 func buildJobRelationships(job *batchv1.Job, application *app.App, ctx context.Context) []map[string]interface{} {
 	relationships := []map[string]interface{}{}
 
+	// Check if this job is owned by a CronJob
+	for _, owner := range job.OwnerReferences {
+		if owner.Kind == "CronJob" {
+			relationships = append(relationships, map[string]interface{}{
+				"relationship_type": "Owned By CronJob",
+				"resource_type":     "CronJob",
+				"resource_name":     owner.Name,
+				"target_type":       "CronJob",
+				"target_namespace":  job.Namespace,
+				"icon":              "⏰",
+			})
+		}
+	}
+
 	// Find pods created by this Job
 	if job.Spec.Selector != nil {
 		selector := labels.SelectorFromSet(job.Spec.Selector.MatchLabels)
@@ -869,6 +1050,46 @@ func buildJobRelationships(job *batchv1.Job, application *app.App, ctx context.C
 				"relationship_type": "Created Pod",
 				"resource_type":     "Pod",
 				"resource_name":     pod.Name,
+				"target_type":       "Pod",
+				"target_namespace":  job.Namespace,
+				"icon":              "📦",
+				"details": map[string]interface{}{
+					"status": string(pod.Status.Phase),
+					"node":   pod.Spec.NodeName,
+				},
+			})
+		}
+	}
+
+	// Find ConfigMaps used by this Job's pod template
+	for _, vol := range job.Spec.Template.Spec.Volumes {
+		if vol.ConfigMap != nil {
+			relationships = append(relationships, map[string]interface{}{
+				"relationship_type": "Uses ConfigMap",
+				"resource_type":     "ConfigMap",
+				"resource_name":     vol.ConfigMap.Name,
+				"target_type":       "ConfigMap",
+				"target_namespace":  job.Namespace,
+				"icon":              "📋",
+			})
+		}
+		if vol.Secret != nil {
+			relationships = append(relationships, map[string]interface{}{
+				"relationship_type": "Uses Secret",
+				"resource_type":     "Secret",
+				"resource_name":     vol.Secret.SecretName,
+				"target_type":       "Secret",
+				"target_namespace":  job.Namespace,
+				"icon":              "🔐",
+			})
+		}
+		if vol.PersistentVolumeClaim != nil {
+			relationships = append(relationships, map[string]interface{}{
+				"relationship_type": "Uses PVC",
+				"resource_type":     "PersistentVolumeClaim",
+				"resource_name":     vol.PersistentVolumeClaim.ClaimName,
+				"target_type":       "PersistentVolumeClaim",
+				"target_namespace":  job.Namespace,
 				"icon":              "💾",
 			})
 		}
@@ -880,14 +1101,36 @@ func buildJobRelationships(job *batchv1.Job, application *app.App, ctx context.C
 func buildCronJobRelationships(cj *batchv1.CronJob, application *app.App, ctx context.Context) []map[string]interface{} {
 	relationships := []map[string]interface{}{}
 
-	// Find active jobs created by this CronJob
-	for _, activeJob := range cj.Status.Active {
-		relationships = append(relationships, map[string]interface{}{
-			"relationship_type": "Manages Job",
-			"resource_type":     "Job",
-			"resource_name":     activeJob.Name,
-			"icon":              "⚙️",
-		})
+	// Find ALL jobs created by this CronJob (not just active ones)
+	jobs, _ := application.K8sClient.Clientset.BatchV1().Jobs(cj.Namespace).List(ctx, metav1.ListOptions{})
+	for _, job := range jobs.Items {
+		// Check if this job is owned by the CronJob
+		for _, owner := range job.OwnerReferences {
+			if owner.Kind == "CronJob" && owner.Name == cj.Name {
+				jobStatus := "Running"
+				if job.Status.Succeeded > 0 {
+					jobStatus = "Completed"
+				} else if job.Status.Failed > 0 {
+					jobStatus = "Failed"
+				}
+
+				relationships = append(relationships, map[string]interface{}{
+					"relationship_type": "Manages Job",
+					"resource_type":     "Job",
+					"resource_name":     job.Name,
+					"target_type":       "Job",
+					"target_namespace":  cj.Namespace,
+					"icon":              "⚙️",
+					"details": map[string]interface{}{
+						"status":    jobStatus,
+						"succeeded": job.Status.Succeeded,
+						"failed":    job.Status.Failed,
+						"active":    job.Status.Active,
+					},
+				})
+				break
+			}
+		}
 	}
 
 	return relationships
@@ -1003,6 +1246,32 @@ func buildSecretRelationships(secret *corev1.Secret, application *app.App, ctx c
 func buildPVCRelationships(pvc *corev1.PersistentVolumeClaim, application *app.App, ctx context.Context) []map[string]interface{} {
 	relationships := []map[string]interface{}{}
 
+	// Add PersistentVolume relationship if bound
+	if pvc.Spec.VolumeName != "" {
+		pv, err := application.K8sClient.Clientset.CoreV1().PersistentVolumes().Get(ctx, pvc.Spec.VolumeName, metav1.GetOptions{})
+		if err == nil {
+			pvDetails := map[string]interface{}{
+				"reclaim_policy": string(pv.Spec.PersistentVolumeReclaimPolicy),
+				"status":         string(pv.Status.Phase),
+			}
+			if capacity, ok := pv.Spec.Capacity["storage"]; ok {
+				pvDetails["capacity"] = capacity.String()
+			}
+			if pv.Spec.StorageClassName != "" {
+				pvDetails["storage_class"] = pv.Spec.StorageClassName
+			}
+
+			relationships = append(relationships, map[string]interface{}{
+				"relationship_type": "Bound To PV",
+				"resource_type":     "PersistentVolume",
+				"resource_name":     pvc.Spec.VolumeName,
+				"target_type":       "PersistentVolume",
+				"icon":              "💿",
+				"details":           pvDetails,
+			})
+		}
+	}
+
 	// Find pods that use this PVC (bottom-up)
 	pods, _ := application.K8sClient.Clientset.CoreV1().Pods(pvc.Namespace).List(ctx, metav1.ListOptions{})
 
@@ -1021,6 +1290,41 @@ func buildPVCRelationships(pvc *corev1.PersistentVolumeClaim, application *app.A
 						"status":      string(pod.Status.Phase),
 						"node":        pod.Spec.NodeName,
 					},
+				})
+				break
+			}
+		}
+	}
+
+	// Find Deployments/StatefulSets using this PVC
+	deployments, _ := application.K8sClient.Clientset.AppsV1().Deployments(pvc.Namespace).List(ctx, metav1.ListOptions{})
+	for _, deploy := range deployments.Items {
+		for _, vol := range deploy.Spec.Template.Spec.Volumes {
+			if vol.PersistentVolumeClaim != nil && vol.PersistentVolumeClaim.ClaimName == pvc.Name {
+				relationships = append(relationships, map[string]interface{}{
+					"relationship_type": "Used By Deployment",
+					"resource_type":     "Deployment",
+					"resource_name":     deploy.Name,
+					"target_type":       "Deployment",
+					"target_namespace":  pvc.Namespace,
+					"icon":              "🚀",
+				})
+				break
+			}
+		}
+	}
+
+	statefulsets, _ := application.K8sClient.Clientset.AppsV1().StatefulSets(pvc.Namespace).List(ctx, metav1.ListOptions{})
+	for _, sts := range statefulsets.Items {
+		for _, vol := range sts.Spec.Template.Spec.Volumes {
+			if vol.PersistentVolumeClaim != nil && vol.PersistentVolumeClaim.ClaimName == pvc.Name {
+				relationships = append(relationships, map[string]interface{}{
+					"relationship_type": "Used By StatefulSet",
+					"resource_type":     "StatefulSet",
+					"resource_name":     sts.Name,
+					"target_type":       "StatefulSet",
+					"target_namespace":  pvc.Namespace,
+					"icon":              "📊",
 				})
 				break
 			}
@@ -1070,19 +1374,129 @@ func buildSecretDetails(secret *corev1.Secret, application *app.App, ctx context
 }
 
 func buildPVCDetails(pvc *corev1.PersistentVolumeClaim, application *app.App, ctx context.Context) map[string]interface{} {
-	storageSize := ""
-	if storage, ok := pvc.Status.Capacity["storage"]; ok {
-		storageSize = storage.String()
+	// Access modes
+	accessModes := []string{}
+	for _, mode := range pvc.Spec.AccessModes {
+		accessModes = append(accessModes, string(mode))
 	}
 
-	details := map[string]interface{}{
-		"status":        string(pvc.Status.Phase),
-		"volume_name":   pvc.Spec.VolumeName,
-		"storage_size":  storageSize,
-		"access_modes":  pvc.Spec.AccessModes,
-		"storage_class": getStringPointer(pvc.Spec.StorageClassName),
-		"labels":        pvc.Labels,
-		"created_at":    pvc.CreationTimestamp.Time,
+	storageClass := getStringPointer(pvc.Spec.StorageClassName)
+
+	requestedStorage := ""
+	if storage, ok := pvc.Spec.Resources.Requests["storage"]; ok {
+		requestedStorage = storage.String()
+	}
+
+	actualStorage := ""
+	if storage, ok := pvc.Status.Capacity["storage"]; ok {
+		actualStorage = storage.String()
+	}
+
+	volumeMode := "Filesystem"
+	if pvc.Spec.VolumeMode != nil {
+		volumeMode = string(*pvc.Spec.VolumeMode)
+	}
+
+	// Fetch full PV details when bound
+	var pvDetails map[string]interface{}
+	if pvc.Spec.VolumeName != "" {
+		pv, err := application.K8sClient.Clientset.CoreV1().PersistentVolumes().Get(ctx, pvc.Spec.VolumeName, metav1.GetOptions{})
+		if err == nil {
+			pvCapacity := ""
+			if capacity, ok := pv.Spec.Capacity["storage"]; ok {
+				pvCapacity = capacity.String()
+			}
+			pvAccessModes := []string{}
+			for _, mode := range pv.Spec.AccessModes {
+				pvAccessModes = append(pvAccessModes, string(mode))
+			}
+
+			// Detect volume type and driver-specific details
+			volumeType := "Unknown"
+			volumeTypeDetails := map[string]interface{}{}
+			if pv.Spec.HostPath != nil {
+				volumeType = "HostPath"
+				volumeTypeDetails["path"] = pv.Spec.HostPath.Path
+			} else if pv.Spec.NFS != nil {
+				volumeType = "NFS"
+				volumeTypeDetails["server"] = pv.Spec.NFS.Server
+				volumeTypeDetails["path"] = pv.Spec.NFS.Path
+				volumeTypeDetails["readOnly"] = pv.Spec.NFS.ReadOnly
+			} else if pv.Spec.CSI != nil {
+				volumeType = "CSI"
+				volumeTypeDetails["driver"] = pv.Spec.CSI.Driver
+				volumeTypeDetails["volumeHandle"] = pv.Spec.CSI.VolumeHandle
+				if pv.Spec.CSI.FSType != "" {
+					volumeTypeDetails["fsType"] = pv.Spec.CSI.FSType
+				}
+			} else if pv.Spec.AWSElasticBlockStore != nil {
+				volumeType = "AWS EBS"
+				volumeTypeDetails["volumeID"] = pv.Spec.AWSElasticBlockStore.VolumeID
+				volumeTypeDetails["fsType"] = pv.Spec.AWSElasticBlockStore.FSType
+			} else if pv.Spec.Local != nil {
+				volumeType = "Local"
+				volumeTypeDetails["path"] = pv.Spec.Local.Path
+			} else if pv.Spec.AzureDisk != nil {
+				volumeType = "Azure Disk"
+				volumeTypeDetails["diskName"] = pv.Spec.AzureDisk.DiskName
+				volumeTypeDetails["diskURI"] = pv.Spec.AzureDisk.DataDiskURI
+			} else if pv.Spec.AzureFile != nil {
+				volumeType = "Azure File"
+				volumeTypeDetails["shareName"] = pv.Spec.AzureFile.ShareName
+			} else if pv.Spec.GCEPersistentDisk != nil {
+				volumeType = "GCE PD"
+				volumeTypeDetails["pdName"] = pv.Spec.GCEPersistentDisk.PDName
+				volumeTypeDetails["fsType"] = pv.Spec.GCEPersistentDisk.FSType
+			}
+
+			pvVolumeMode := "Filesystem"
+			if pv.Spec.VolumeMode != nil {
+				pvVolumeMode = string(*pv.Spec.VolumeMode)
+			}
+
+			pvDetails = map[string]interface{}{
+				"name":           pv.Name,
+				"status":         string(pv.Status.Phase),
+				"capacity":       pvCapacity,
+				"reclaim_policy": string(pv.Spec.PersistentVolumeReclaimPolicy),
+				"volume_type":    volumeType,
+				"volume_details": volumeTypeDetails,
+				"volume_mode":    pvVolumeMode,
+				"access_modes":   pvAccessModes,
+				"storage_class":  pv.Spec.StorageClassName,
+				"created_at":     pv.CreationTimestamp.Format(time.RFC3339),
+				"age_days":       int(time.Since(pv.CreationTimestamp.Time).Hours() / 24),
+			}
+		}
+	}
+
+	// Fetch pods using this PVC
+	usingPods := []string{}
+	podDetails := []map[string]interface{}{}
+	pods, _ := application.K8sClient.Clientset.CoreV1().Pods(pvc.Namespace).List(ctx, metav1.ListOptions{})
+	for _, pod := range pods.Items {
+		for _, vol := range pod.Spec.Volumes {
+			if vol.PersistentVolumeClaim != nil && vol.PersistentVolumeClaim.ClaimName == pvc.Name {
+				usingPods = append(usingPods, pod.Name)
+				restartCount := 0
+				for _, cs := range pod.Status.ContainerStatuses {
+					restartCount += int(cs.RestartCount)
+				}
+				podStatus := string(pod.Status.Phase)
+				if pod.DeletionTimestamp != nil {
+					podStatus = "Terminating"
+				}
+				podDetails = append(podDetails, map[string]interface{}{
+					"name":          pod.Name,
+					"status":        podStatus,
+					"node":          pod.Spec.NodeName,
+					"restart_count": restartCount,
+					"age_days":      int(time.Since(pod.CreationTimestamp.Time).Hours() / 24),
+					"created_at":    pod.CreationTimestamp.Format(time.RFC3339),
+				})
+				break
+			}
+		}
 	}
 
 	healthScore := 100
@@ -1091,13 +1505,26 @@ func buildPVCDetails(pvc *corev1.PersistentVolumeClaim, application *app.App, ct
 	}
 
 	return map[string]interface{}{
-		"name":          pvc.Name,
-		"namespace":     pvc.Namespace,
-		"resource_type": "PersistentVolumeClaim",
-		"status":        string(pvc.Status.Phase),
-		"health_score":  healthScore,
-		"details":       details,
-		"relationships": buildPVCRelationships(pvc, application, ctx),
+		"name":              pvc.Name,
+		"namespace":         pvc.Namespace,
+		"resource_type":     "PersistentVolumeClaim",
+		"status":            string(pvc.Status.Phase),
+		"health_score":      healthScore,
+		"volume_name":       pvc.Spec.VolumeName,
+		"storage_class":     storageClass,
+		"access_modes":      accessModes,
+		"requested_storage": requestedStorage,
+		"actual_storage":    actualStorage,
+		"volume_mode":       volumeMode,
+		"pod_count":         len(usingPods),
+		"using_pods":        usingPods,
+		"pod_details":       podDetails,
+		"pv_details":        pvDetails,
+		"labels":            pvc.Labels,
+		"annotations":       pvc.Annotations,
+		"created_at":        pvc.CreationTimestamp.Format(time.RFC3339),
+		"age_days":          int(time.Since(pvc.CreationTimestamp.Time).Hours() / 24),
+		"relationships":     buildPVCRelationships(pvc, application, ctx),
 	}
 }
 

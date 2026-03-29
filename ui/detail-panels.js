@@ -56,27 +56,8 @@ function closeDetailPanel(panelId) {
 
 // Fetch resource data based on type
 async function fetchResourceData(resourceType, namespace, name) {
-    let endpoint = '';
-    
-    switch (resourceType.toLowerCase()) {
-        case 'pod':
-            endpoint = `/api/pods/${namespace}`;
-            break;
-        case 'deployment':
-            endpoint = `/api/deployments/${namespace}`;
-            break;
-        case 'service':
-            endpoint = `/api/services/${namespace}`;
-            break;
-        case 'ingress':
-            endpoint = `/api/ingresses/${namespace}`;
-            break;
-        case 'node':
-            endpoint = `/api/health/${namespace}`;
-            break;
-        default:
-            throw new Error(`Unknown resource type: ${resourceType}`);
-    }
+    // Use the detailed resource endpoint (keep original case)
+    const endpoint = `/api/resource/${resourceType}/${namespace}/${name}`;
 
     const response = await fetch(endpoint);
     if (!response.ok) {
@@ -84,22 +65,6 @@ async function fetchResourceData(resourceType, namespace, name) {
     }
 
     const data = await response.json();
-    
-    // Find the specific resource by name
-    if (Array.isArray(data)) {
-        const resource = data.find(r => r.name === name);
-        if (!resource) {
-            throw new Error(`Resource ${name} not found`);
-        }
-        return resource;
-    } else if (resourceType.toLowerCase() === 'node' && data.nodes) {
-        const node = data.nodes.find(n => n.name === name);
-        if (!node) {
-            throw new Error(`Node ${name} not found`);
-        }
-        return node;
-    }
-    
     return data;
 }
 
@@ -138,6 +103,18 @@ function renderResourceDetails(resourceType, data, namespace, panelId) {
             <div class="details-badges">
                 <span class="status-badge" style="background: var(--info-bg); color: var(--info); border: 1px solid var(--info);">
                     ${data.ready_replicas || 0}/${data.desired_replicas || 0} Ready
+                </span>
+            </div>
+        `;
+    } else if (type === 'persistentvolumeclaim') {
+        const pvcColor = data.status === 'Bound' ? 'success' : data.status === 'Pending' ? 'warning' : 'danger';
+        html += `
+            <div class="details-badges">
+                <span class="status-badge" style="background: var(--${pvcColor}-bg); color: var(--${pvcColor}); border: 1px solid var(--${pvcColor});">
+                    ${data.status || 'Unknown'}
+                </span>
+                <span class="status-badge" style="background: var(--info-bg); color: var(--info); border: 1px solid var(--info);">
+                    ${data.pod_count || 0} pod${(data.pod_count || 0) !== 1 ? 's' : ''}
                 </span>
             </div>
         `;
@@ -281,24 +258,179 @@ function renderSpecificDetails(type, data) {
 function renderPodSpecificDetails(data) {
     let html = '';
     
-    // Containers
-    if (data.containers && data.containers.length > 0) {
-        html += '<div class="details-section"><h4 class="section-title"><span class="section-icon">📦</span>Containers</h4>';
-        data.containers.forEach(container => {
-            html += `
-                <div class="info-item">
-                    <label class="info-label">${container.name || 'Container'}</label>
-                    <span class="info-value">Image: ${container.image || 'N/A'}</span>
-                </div>
-            `;
+    // Extract details object
+    const details = data.details || data;
+    
+    // Status Section
+    html += '<div class="details-section">';
+    html += '<h4 class="section-title"><span class="section-icon">📊</span>Status</h4>';
+    html += '<div class="info-grid">';
+    html += `<div class="info-item"><label class="info-label">Phase:</label><span class="info-value">${details.phase || data.status || 'N/A'}</span></div>`;
+    html += `<div class="info-item"><label class="info-label">Node:</label><span class="info-value">${details.node_name || 'N/A'}</span></div>`;
+    html += `<div class="info-item"><label class="info-label">Pod IP:</label><span class="info-value">${details.pod_ip || 'N/A'}</span></div>`;
+    html += `<div class="info-item"><label class="info-label">Host IP:</label><span class="info-value">${details.host_ip || 'N/A'}</span></div>`;
+    html += `<div class="info-item"><label class="info-label">QoS Class:</label><span class="info-value">${details.qos_class || 'N/A'}</span></div>`;
+    html += `<div class="info-item"><label class="info-label">Service Account:</label><span class="info-value">${details.service_account || 'default'}</span></div>`;
+    if (details.created_at) {
+        html += `<div class="info-item"><label class="info-label">Created:</label><span class="info-value">${details.created_at}</span></div>`;
+    }
+    html += '</div></div>';
+    
+    // Init Containers Section
+    if (details.init_containers && details.init_containers.length > 0) {
+        html += '<div class="details-section">';
+        html += `<h4 class="section-title"><span class="section-icon">⚙️</span>Init Containers (${details.init_containers.length})</h4>`;
+        
+        details.init_containers.forEach((container, idx) => {
+            const status = details.init_container_statuses && details.init_container_statuses[idx];
+            const statusClass = status && status.state === 'Completed' ? 'status-healthy' : 
+                               status && status.state === 'Failed' ? 'status-unhealthy' : 'status-warning';
+            const statusText = status ? status.state : 'Unknown';
+            
+            html += '<div class="container-card">';
+            html += `<div class="container-header">`;
+            html += `<span class="container-name">${idx + 1}/${details.init_containers.length} ${container.name}</span>`;
+            html += `<span class="container-status ${statusClass}">${statusText}</span>`;
+            html += '</div>';
+            html += '<div class="info-grid">';
+            html += `<div class="info-item"><label class="info-label">Image:</label><span class="info-value code">${container.image}</span></div>`;
+            
+            if (container.command && container.command.length > 0) {
+                html += `<div class="info-item"><label class="info-label">Command:</label><span class="info-value code">${container.command.join(' ')}</span></div>`;
+            }
+            if (container.args && container.args.length > 0) {
+                html += `<div class="info-item"><label class="info-label">Args:</label><span class="info-value code">${container.args.join(' ')}</span></div>`;
+            }
+            
+            // Resources
+            if (container.resources) {
+                if (container.resources.requests) {
+                    const req = container.resources.requests;
+                    html += `<div class="info-item"><label class="info-label">Requests:</label><span class="info-value">CPU: ${req.cpu || '0'}, Mem: ${req.memory || '0'}</span></div>`;
+                }
+                if (container.resources.limits) {
+                    const lim = container.resources.limits;
+                    html += `<div class="info-item"><label class="info-label">Limits:</label><span class="info-value">CPU: ${lim.cpu || '∞'}, Mem: ${lim.memory || '∞'}</span></div>`;
+                }
+            }
+            
+            if (status && status.message) {
+                html += `<div class="info-item"><label class="info-label">Message:</label><span class="info-value">${status.message}</span></div>`;
+            }
+            html += '</div></div>';
         });
         html += '</div>';
     }
     
+    // Main Containers Section
+    if (details.containers && details.containers.length > 0) {
+        html += '<div class="details-section">';
+        html += `<h4 class="section-title"><span class="section-icon">📦</span>Containers (${details.containers.length})</h4>`;
+        
+        details.containers.forEach((container, idx) => {
+            const status = details.container_statuses && details.container_statuses[idx];
+            const statusClass = status && status.state === 'Running' ? 'status-healthy' : 
+                               status && status.state === 'Terminated' ? 'status-unhealthy' : 'status-warning';
+            const statusText = status ? status.state : 'Unknown';
+            
+            html += '<div class="container-card">';
+            html += '<div class="container-header">';
+            html += `<span class="container-name">${container.name}</span>`;
+            html += `<span class="container-status ${statusClass}">${statusText}</span>`;
+            if (status && status.ready !== undefined) {
+                html += `<span class="container-ready ${status.ready ? 'ready-yes' : 'ready-no'}">${status.ready ? 'Ready' : 'Not Ready'}</span>`;
+            }
+            html += '</div>';
+            html += '<div class="info-grid">';
+            html += `<div class="info-item"><label class="info-label">Image:</label><span class="info-value code">${container.image}</span></div>`;
+            
+            // Ports
+            if (container.ports && container.ports.length > 0) {
+                const portsStr = container.ports.map(p => 
+                    `${p.container_port}${p.name ? '(' + p.name + ')' : ''}/${p.protocol || 'TCP'}`
+                ).join(', ');
+                html += `<div class="info-item"><label class="info-label">Ports:</label><span class="info-value">${portsStr}</span></div>`;
+            }
+            
+            // Resources
+            if (container.resources) {
+                if (container.resources.requests) {
+                    const req = container.resources.requests;
+                    html += `<div class="info-item"><label class="info-label">Requests:</label><span class="info-value">CPU: ${req.cpu || '0'}, Mem: ${req.memory || '0'}</span></div>`;
+                }
+                if (container.resources.limits) {
+                    const lim = container.resources.limits;
+                    html += `<div class="info-item"><label class="info-label">Limits:</label><span class="info-value">CPU: ${lim.cpu || '∞'}, Mem: ${lim.memory || '∞'}</span></div>`;
+                }
+            }
+            
+            if (status) {
+                if (status.restart_count !== undefined) {
+                    html += `<div class="info-item"><label class="info-label">Restarts:</label><span class="info-value">${status.restart_count}</span></div>`;
+                }
+                if (status.started_at) {
+                    html += `<div class="info-item"><label class="info-label">Started:</label><span class="info-value">${status.started_at}</span></div>`;
+                }
+                if (status.reason) {
+                    html += `<div class="info-item"><label class="info-label">Reason:</label><span class="info-value">${status.reason}</span></div>`;
+                }
+                if (status.message) {
+                    html += `<div class="info-item"><label class="info-label">Message:</label><span class="info-value">${status.message}</span></div>`;
+                }
+            }
+            html += '</div></div>';
+        });
+        html += '</div>';
+    }
+    
+    // Conditions Section
+    if (details.conditions && details.conditions.length > 0) {
+        html += '<div class="details-section">';
+        html += `<h4 class="section-title"><span class="section-icon">🔍</span>Conditions (${details.conditions.length})</h4>`;
+        html += '<div class="conditions-list">';
+        details.conditions.forEach(condition => {
+            const statusClass = condition.status === 'True' ? 'status-healthy' : 'status-warning';
+            html += '<div class="condition-item">';
+            html += `<div class="condition-header">`;
+            html += `<span class="condition-type">${condition.type}</span>`;
+            html += `<span class="condition-status ${statusClass}">${condition.status}</span>`;
+            html += '</div>';
+            if (condition.reason || condition.message) {
+                html += '<div class="condition-details">';
+                if (condition.reason) {
+                    html += `<span class="condition-reason">${condition.reason}</span>`;
+                }
+                if (condition.message) {
+                    html += `<span class="condition-message">${condition.message}</span>`;
+                }
+                html += '</div>';
+            }
+            html += '</div>';
+        });
+        html += '</div></div>';
+    }
+    
+    // App Info Section
+    if (details.app_info && Object.keys(details.app_info).length > 0) {
+        html += '<div class="details-section">';
+        html += '<h4 class="section-title"><span class="section-icon">📱</span>App Info</h4>';
+        html += '<div class="info-grid">';
+        if (details.app_info.app_name) {
+            html += `<div class="info-item"><label class="info-label">App Name:</label><span class="info-value">${details.app_info.app_name}</span></div>`;
+        }
+        if (details.app_info.version) {
+            html += `<div class="info-item"><label class="info-label">Version:</label><span class="info-value">${details.app_info.version}</span></div>`;
+        }
+        if (details.app_info.component) {
+            html += `<div class="info-item"><label class="info-label">Component:</label><span class="info-value">${details.app_info.component}</span></div>`;
+        }
+        html += '</div></div>';
+    }
+    
     // Labels
-    if (data.labels && Object.keys(data.labels).length > 0) {
+    if (details.labels && Object.keys(details.labels).length > 0) {
         html += '<div class="info-section"><h4 class="section-title"><span class="section-icon">🏷️</span>Labels</h4><div class="labels-container">';
-        Object.entries(data.labels).forEach(([key, value]) => {
+        Object.entries(details.labels).forEach(([key, value]) => {
             html += `<span class="label-badge">${key}: ${value}</span>`;
         });
         html += '</div></div>';

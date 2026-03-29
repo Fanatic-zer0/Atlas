@@ -21,11 +21,13 @@ function toggleTheme() {
 
     if (html.classList.contains('dark')) {
         html.classList.remove('dark');
-        themeIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>';
+        // Sun icon for light mode
+        themeIcon.innerHTML = '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
         localStorage.setItem('theme', 'light');
     } else {
         html.classList.add('dark');
-        themeIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>';
+        // Moon icon for dark mode
+        themeIcon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
         localStorage.setItem('theme', 'dark');
     }
 }
@@ -38,12 +40,14 @@ function loadThemePreference() {
     if (savedTheme === 'light') {
         html.classList.remove('dark');
         if (themeIcon) {
-            themeIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>';
+            // Sun icon for light mode
+            themeIcon.innerHTML = '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
         }
     } else {
         html.classList.add('dark');
         if (themeIcon) {
-            themeIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>';
+            // Moon icon for dark mode
+            themeIcon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
         }
     }
 }
@@ -73,19 +77,22 @@ function loadSidebarState() {
    ============================================ */
 
 function selectTab(event, tabName) {
-    event.preventDefault();
+    if (event) event.preventDefault();
     currentTab = tabName;
 
     // Close mobile sidebar when a tab is selected
     toggleMobileSidebar();
 
-    // Update active menu item - remove from all, add to clicked
+    // Update active menu item
     document.querySelectorAll('.nav-item').forEach(item => {
         item.classList.remove('active', 'text-white', 'bg-primary-600', 'dark:bg-primary-500');
         item.classList.add('text-gray-700', 'dark:text-gray-300', 'hover:bg-gray-100', 'dark:hover:bg-gray-700');
     });
-    
-    const activeItem = event.target.closest('.nav-item');
+
+    // Support both real click (event.target) and programmatic call (match by data-tab)
+    const activeItem = (event && event.target)
+        ? event.target.closest('.nav-item')
+        : document.querySelector(`[data-tab="${tabName}"]`);
     if (activeItem) {
         activeItem.classList.remove('text-gray-700', 'dark:text-gray-300', 'hover:bg-gray-100', 'dark:hover:bg-gray-700');
         activeItem.classList.add('active', 'text-white', 'bg-primary-600', 'dark:bg-primary-500');
@@ -157,8 +164,8 @@ async function loadTabData(tabName) {
             tabDataCache[tabName] = { namespace: currentNamespace, loaded: true };
             break;
         case 'health':
-            await loadHealth();
-            tabDataCache[tabName] = { namespace: currentNamespace, loaded: true };
+            // Health merged into dashboard
+            selectTab(null, 'overview');
             break;
         case 'cluster':
             await loadClusterNodes();
@@ -195,19 +202,24 @@ async function loadClusterInfo() {
         const data = await response.json();
 
         clusterInfoEl.innerHTML = `
-            <span>🏗️ Cluster: ${data.cluster_name || 'Unknown'}</span>
+            <span>🏗️ ${clusterShortName(data.cluster_name)}</span>
         `;
 
         // Populate namespace selector
         const select = document.getElementById('namespaceSelect');
         if (select && data.namespaces && data.namespaces.length > 0) {
-            select.innerHTML = data.namespaces.map(ns =>
-                `<option value="${ns}">${ns}</option>`
-            ).join('');
-            
-            // Set current namespace to the first one if default doesn't exist
+            select.innerHTML =
+                `<option value="_all">All Namespaces</option>` +
+                data.namespaces.map(ns =>
+                    `<option value="${ns}">${ns}</option>`
+                ).join('');
+
+            // Default to 'default' namespace if it exists, otherwise first
             const hasDefault = data.namespaces.includes('default');
-            if (!hasDefault) {
+            if (hasDefault) {
+                currentNamespace = 'default';
+                select.value = 'default';
+            } else {
                 currentNamespace = data.namespaces[0];
                 select.value = currentNamespace;
             }
@@ -221,7 +233,33 @@ async function loadClusterInfo() {
 function changeNamespace() {
     currentNamespace = document.getElementById('namespaceSelect').value;
     tabDataCache = {}; // Clear cache when namespace changes
+    updateAllNsBanner();
     refreshCurrentTab();
+}
+
+// Show/hide a warning banner when All Namespaces is active on data-heavy tabs
+function updateAllNsBanner() {
+    const existing = document.getElementById('allNsBanner');
+    if (currentNamespace !== '_all') {
+        if (existing) existing.remove();
+        return;
+    }
+    if (existing) return; // Already shown
+    const banner = document.createElement('div');
+    banner.id = 'allNsBanner';
+    banner.className = 'all-ns-banner';
+    banner.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span>Viewing <strong>all namespaces</strong> — responses may be slow on large clusters (~6s per resource type).</span>
+    `;
+    const contentPane = document.querySelector('.content-pane');
+    if (contentPane) contentPane.insertAdjacentElement('afterbegin', banner);
+}
+
+// Returns the namespace string to use in API URLs.
+// '_all' is passed as-is; the backend converts it to "" for K8s all-namespace queries.
+function nsForApi() {
+    return currentNamespace;
 }
 
 function refreshCurrentTab() {
@@ -231,113 +269,162 @@ function refreshCurrentTab() {
 }
 
 /* ============================================
-   OVERVIEW DASHBOARD
+   DASHBOARD NAVIGATION HELPERS
    ============================================ */
+
+// Navigate to tabs – also handles resource explorer with type pre-filter
+function navigateToTab(tabName, searchFilter) {
+    if (tabName === 'health') tabName = 'overview';
+    selectTab(null, tabName);
+
+    if (searchFilter && tabName !== 'overview') {
+        setTimeout(() => {
+            const searchMap = {
+                pods:        'podSearchFilter',
+                deployments: 'deploymentSearchFilter',
+                services:    'serviceSearchFilter',
+                ingresses:   'ingressSearchFilter',
+                configmaps:  'configmapSearchFilter',
+                secrets:     'secretSearchFilter',
+                crds:        'crdSearchFilter',
+            };
+            const searchId = searchMap[tabName];
+            if (searchId) {
+                const input = document.getElementById(searchId);
+                if (input) { input.value = searchFilter; filterTable(tabName); }
+            }
+        }, 400);
+    }
+}
+
+// Navigate to Resource Explorer pre-filtered to a specific resource type
+function navigateToResourceType(resourceType) {
+    selectTab(null, 'resourceViewer');
+    setTimeout(() => {
+        const filter = document.getElementById('resourceTypeFilter');
+        if (filter) {
+            filter.value = resourceType;
+            loadAllResources();
+        }
+    }, 100);
+}
+
+// Navigate to pods tab and filter to unhealthy pods
+function navigateToPodFilter(preset) {
+    if (preset === 'unhealthy') {
+        window._podStatusFilter = 'unhealthy';
+    }
+    navigateToTab('pods');
+}
+
+// Click a namespace chip: switch namespace then navigate to requested tab
+function setNamespaceAndNavigate(ns, tabName) {
+    const select = document.getElementById('namespaceSelect');
+    if (select) {
+        select.value = ns;
+        changeNamespace();
+    }
+    setTimeout(() => navigateToTab(tabName), 100);
+}
+
+// Extract a human-readable name from an EKS ARN or any cluster identifier.
+// "arn:aws:eks:us-east-1:123:cluster/my-cluster" → "my-cluster"
+function clusterShortName(name) {
+    if (!name) return 'Unknown';
+    const m = name.match(/\/([^/]+)$/);
+    return m ? m[1] : name;
+}
 
 async function loadOverview() {
     try {
-        console.log('Loading overview dashboard...');
-        
-        // Load stats in parallel
+        // Fetch everything in parallel
         const [pods, deployments, services, health, cluster] = await Promise.all([
-            fetch(`/api/pods/${currentNamespace}`).then(r => r.json()),
-            fetch(`/api/deployments/${currentNamespace}`).then(r => r.json()),
-            fetch(`/api/services/${currentNamespace}`).then(r => r.json()),
-            fetch(`/api/health/${currentNamespace}`).then(r => r.json()),
+            fetch(`/api/pods/${nsForApi()}`).then(r => r.json()),
+            fetch(`/api/deployments/${nsForApi()}`).then(r => r.json()),
+            fetch(`/api/services/${nsForApi()}`).then(r => r.json()),
+            fetch(`/api/health/${nsForApi()}`).then(r => r.json()),
             fetch('/api/cluster').then(r => r.json())
         ]);
 
-        console.log('API Data received:', { pods, deployments, services, health, cluster });
+        // Normalize arrays
+        const podsArray = Array.isArray(pods) ? pods : (pods.pods || []);
+        const deploymentsArray = Array.isArray(deployments) ? deployments : (deployments.deployments || []);
+        const servicesArray = Array.isArray(services) ? services : (services.services || []);
 
-        // Update stat cards
-        updateStatCards(pods, deployments, services, health);
-        
-        // Update cluster details
-        updateClusterDetails(cluster);
-        
-        // Update health details in overview
-        updateOverviewHealthDetails(health);
-        
-        console.log('Overview dashboard loaded successfully');
+        updateStatCards(podsArray, deploymentsArray, servicesArray, health);
+        updateClusterDetails(cluster, health);
+        updateOverviewHealthDetails(health, podsArray);
+        renderDashboardResourceGrid(health);
+        renderDashboardEvents(health);
+
+        // Update page subtitle — show short cluster name only once
+        const subtitle = document.getElementById('dashboardSubtitle');
+        if (subtitle) {
+            const short = clusterShortName(cluster.cluster_name);
+            subtitle.textContent = `${short}${cluster.context_name && clusterShortName(cluster.context_name) !== short ? ' · ' + clusterShortName(cluster.context_name) : ''}`;
+        }
     } catch (error) {
         console.error('Error loading overview:', error);
     }
 }
 
-function updateStatCards(pods, deployments, services, health) {
+function updateStatCards(podsArray, deploymentsArray, servicesArray, health) {
     try {
-        // Handle both array and object formats
-        const podsArray = Array.isArray(pods) ? pods : (pods.pods || []);
-        const deploymentsArray = Array.isArray(deployments) ? deployments : (deployments.deployments || []);
-        const servicesArray = Array.isArray(services) ? services : (services.services || []);
-        
         // Total Pods
         const totalPods = podsArray.length;
+        const healthyStatuses = ['Running', 'Succeeded', 'Completed'];
         const runningPods = podsArray.filter(p => p.status === 'Running').length;
+        const unhealthyPods = podsArray.filter(p =>
+            !healthyStatuses.includes(p.status) ||
+            (p.status === 'Running' && p.ready_containers < p.total_containers)
+        ).length;
         const statTotalPodsEl = document.getElementById('statTotalPods');
         const statPodsRunningEl = document.getElementById('statPodsRunning');
         if (statTotalPodsEl) statTotalPodsEl.textContent = totalPods;
-        if (statPodsRunningEl) statPodsRunningEl.textContent = `${runningPods} running`;
-        
+        if (statPodsRunningEl) {
+            statPodsRunningEl.innerHTML = `${runningPods} running${unhealthyPods > 0 ? ` · <span class="stat-sub-alert" onclick="navigateToPodFilter('unhealthy')">${unhealthyPods} unhealthy</span>` : ''}`;
+        }
+
         // Deployments
         const totalDeployments = deploymentsArray.length;
-        const readyDeployments = deploymentsArray.filter(d => d.ready_replicas === d.desired_replicas).length;
+        const readyDeployments = deploymentsArray.filter(d => d.replicas_ready === d.replicas_desired).length;
+        const degradedDeployments = totalDeployments - readyDeployments;
         const statDeploymentsEl = document.getElementById('statDeployments');
         const statDeploymentsReadyEl = document.getElementById('statDeploymentsReady');
         if (statDeploymentsEl) statDeploymentsEl.textContent = totalDeployments;
-        if (statDeploymentsReadyEl) statDeploymentsReadyEl.textContent = `${readyDeployments} ready`;
-        
+        if (statDeploymentsReadyEl) {
+            statDeploymentsReadyEl.innerHTML = `${readyDeployments} ready${degradedDeployments > 0 ? ` · <span class="stat-sub-alert">${degradedDeployments} degraded</span>` : ''}`;
+        }
+
         // Services
         const totalServices = servicesArray.length;
-        const serviceTypes = servicesArray.map(s => s.type);
-        const clusterIPs = serviceTypes.filter(t => t === 'ClusterIP').length;
+        const lbServices = servicesArray.filter(s => s.type === 'LoadBalancer').length;
         const statServicesEl = document.getElementById('statServices');
         const statServicesTypeEl = document.getElementById('statServicesType');
         if (statServicesEl) statServicesEl.textContent = totalServices;
-        if (statServicesTypeEl) statServicesTypeEl.textContent = `${clusterIPs} ClusterIP`;
-        
+        if (statServicesTypeEl) statServicesTypeEl.textContent = `${lbServices} LoadBalancer`;
+
         // Health Score
-        let healthScore = 'N/A';
-        let healthStatus = 'Unknown';
-        let healthColor = 'text-gray-600 dark:text-gray-400';
-        
-        if (health) {
-            // Calculate total healthy resources
-            const healthyPods = (health.pod_health && health.pod_health.healthy) || 0;
-            const healthyDeployments = (health.deployment_health && health.deployment_health.healthy) || 0;
-            const healthyServices = (health.service_health && health.service_health.with_endpoints) || 0;
-            
-            const totalPods = health.pod_count || 0;
-            const totalDeployments = health.deployment_count || 0;
-            const totalServices = health.service_count || 0;
-            
-            const healthy = healthyPods + healthyDeployments + healthyServices;
-            const total = totalPods + totalDeployments + totalServices;
-            
-            const percentage = total > 0 ? Math.round((healthy / total) * 100) : 0;
-            healthScore = `${percentage}%`;
-            
+        const podCount = health.pod_count || totalPods;
+        const podRunning = health.pod_running || runningPods;
+        const depCount = health.deployment_count || totalDeployments;
+        const depHealthy = health.deployment_health?.healthy || readyDeployments;
+        const healthy = podRunning + depHealthy;
+        const total = podCount + depCount;
+        const percentage = total > 0 ? Math.round((healthy / total) * 100) : 0;
+
+        const scoreEl = document.getElementById('statHealthScore');
+        const statusEl = document.getElementById('statHealthStatus');
+        if (scoreEl) scoreEl.textContent = `${percentage}%`;
+        if (statusEl) {
             if (percentage >= 90) {
-                healthStatus = '✓ Healthy';
-                healthColor = 'text-green-600 dark:text-green-400';
+                statusEl.innerHTML = '<span style="color:var(--success)">✓ Healthy</span>';
             } else if (percentage >= 70) {
-                healthStatus = '⚠ Warning';
-                healthColor = 'text-yellow-600 dark:text-yellow-400';
+                statusEl.innerHTML = '<span style="color:var(--warning)">⚠ Warning</span>';
             } else {
-                healthStatus = '✗ Critical';
-                healthColor = 'text-red-600 dark:text-red-400';
+                statusEl.innerHTML = '<span style="color:var(--danger)">✗ Critical</span>';
             }
         }
-        
-        const statHealthScoreEl = document.getElementById('statHealthScore');
-        const healthStatusEl = document.getElementById('statHealthStatus');
-        if (statHealthScoreEl) statHealthScoreEl.textContent = healthScore;
-        if (healthStatusEl) {
-            healthStatusEl.textContent = healthStatus;
-            healthStatusEl.className = `text-sm font-medium ${healthColor}`;
-        }
-        
-        console.log('Stat cards updated successfully');
     } catch (error) {
         console.error('Error updating stat cards:', error);
     }
@@ -461,89 +548,296 @@ function updateCharts(pods, deployments, services) {
     }
 }
 
-function updateClusterDetails(cluster) {
+function updateClusterDetails(cluster, health) {
     const detailsEl = document.getElementById('clusterDetails');
     if (!detailsEl) return;
-    
-    let html = '';
-    html += `<p class="mb-2"><span class="font-medium text-gray-900 dark:text-white">Cluster Name:</span> <span class="ml-2">${cluster.cluster_name || 'Unknown'}</span></p>`;
-    html += `<p class="mb-2"><span class="font-medium text-gray-900 dark:text-white">Context:</span> <span class="ml-2">${cluster.context_name || 'Unknown'}</span></p>`;
-    html += `<p class="mb-2"><span class="font-medium text-gray-900 dark:text-white">Total Namespaces:</span> <span class="ml-2">${cluster.namespaces ? cluster.namespaces.length : 0}</span></p>`;
-    
+
+    const nodeCount = (health && health.nodes) ? health.nodes.length : 0;
+    const readyNodes = (health && health.nodes) ? health.nodes.filter(n => n.ready !== false).length : 0;
+    const nsCount = cluster.namespaces ? cluster.namespaces.length : 0;
+
+    let html = `<div class="dash-info-list">`;
+
+    const shortName = clusterShortName(cluster.cluster_name);
+    const shortCtx = clusterShortName(cluster.context_name);
+    html += `
+        <div class="dash-info-row">
+            <span class="dash-info-key">Cluster</span>
+            <span class="dash-info-val">${shortName}</span>
+        </div>
+        ${shortCtx !== shortName ? `
+        <div class="dash-info-row">
+            <span class="dash-info-key">Context</span>
+            <span class="dash-info-val dash-info-mono">${shortCtx}</span>
+        </div>` : ''}
+        <div class="dash-info-row">
+            <span class="dash-info-key">Nodes</span>
+            <span class="dash-info-val">
+                <span style="color:var(--success)">${readyNodes} ready</span>
+                ${nodeCount - readyNodes > 0 ? `<span style="color:var(--danger);margin-left:6px;">${nodeCount - readyNodes} not ready</span>` : ''}
+                <span class="dash-info-muted"> / ${nodeCount} total</span>
+            </span>
+        </div>
+        <div class="dash-info-row">
+            <span class="dash-info-key">Namespaces</span>
+            <span class="dash-info-val">
+                <span class="dash-count-badge">${nsCount}</span>
+            </span>
+        </div>
+    `;
+
+    // Namespace chips (up to 8, then overflow)
     if (cluster.namespaces && cluster.namespaces.length > 0) {
-        html += `<p class="mb-2"><span class="font-medium text-gray-900 dark:text-white">Namespaces:</span></p>`;
-        html += '<div class="flex flex-wrap gap-2 mt-2">';
-        cluster.namespaces.slice(0, 10).forEach(ns => {
-            html += `<span class="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded text-xs">${ns}</span>`;
+        html += `<div class="dash-ns-chips">`;
+        cluster.namespaces.slice(0, 8).forEach(ns => {
+            html += `<span class="dash-ns-chip" onclick="setNamespaceAndNavigate('${ns}', 'pods')">${ns}</span>`;
         });
-        if (cluster.namespaces.length > 10) {
-            html += `<span class="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded text-xs">+${cluster.namespaces.length - 10} more</span>`;
+        if (cluster.namespaces.length > 8) {
+            html += `<span class="dash-ns-chip dash-ns-chip-more">+${cluster.namespaces.length - 8} more</span>`;
         }
-        html += '</div>';
+        html += `</div>`;
     }
-    
+
+    // Node list (compact, first 7 visible, rest collapsible)
+    if (health && health.nodes && health.nodes.length > 0) {
+        const nodes = health.nodes;
+        const initialCount = 7;
+        const hasMore = nodes.length > initialCount;
+        const nodeId = 'dash-nodes-extra-' + Date.now();
+        html += `<div class="dash-nodes-mini">`;
+        nodes.forEach((node, idx) => {
+            const ready = node.ready !== false;
+            const hidden = hasMore && idx >= initialCount ? ` style="display:none"` : '';
+            const extraClass = hasMore && idx >= initialCount ? ' dash-node-extra' : '';
+            html += `
+                <div class="dash-node-row${extraClass}"${hidden}>
+                    <span class="dash-node-dot" style="background:${ready ? 'var(--success)' : 'var(--danger)'}"></span>
+                    <span class="dash-node-name">${node.name}</span>
+                    <span class="dash-node-meta">${node.instance_type || node.os || ''}</span>
+                    <span class="dash-node-status" style="color:${ready ? 'var(--success)' : 'var(--danger)'}">${ready ? 'Ready' : 'NotReady'}</span>
+                </div>
+            `;
+        });
+        if (hasMore) {
+            html += `
+                <div class="dash-nodes-toggle" onclick="
+                    var rows = this.parentElement.querySelectorAll('.dash-node-extra');
+                    var expanded = this.getAttribute('data-expanded') === '1';
+                    rows.forEach(function(r){ r.style.display = expanded ? 'none' : ''; });
+                    this.setAttribute('data-expanded', expanded ? '0' : '1');
+                    this.textContent = expanded ? 'View all ${nodes.length} nodes ▾' : 'Show less ▴';
+                " data-expanded="0">View all ${nodes.length} nodes ▾</div>
+            `;
+        }
+        html += `</div>`;
+    }
+
+    html += `</div>`;
     detailsEl.innerHTML = html;
 }
 
-function updateOverviewHealthDetails(health) {
+function updateOverviewHealthDetails(health, podsArray) {
     const detailsEl = document.getElementById('overviewHealthDetails');
     if (!detailsEl) return;
-    
-    let html = '';
-    
-    if (health) {
-        // Calculate total healthy and unhealthy resources
-        const healthyPods = (health.pod_health && health.pod_health.healthy) || 0;
-        const degradedPods = (health.pod_health && health.pod_health.degraded) || 0;
-        const criticalPods = (health.pod_health && health.pod_health.critical) || 0;
-        
-        const healthyDeployments = (health.deployment_health && health.deployment_health.healthy) || 0;
-        const degradedDeployments = (health.deployment_health && health.deployment_health.degraded) || 0;
-        const criticalDeployments = (health.deployment_health && health.deployment_health.critical) || 0;
-        
-        const healthyServices = (health.service_health && health.service_health.with_endpoints) || 0;
-        const unhealthyServices = (health.service_health && health.service_health.without_endpoints) || 0;
-        
-        const totalPods = health.pod_count || 0;
-        const totalDeployments = health.deployment_count || 0;
-        const totalServices = health.service_count || 0;
-        const totalNodes = (health.nodes && health.nodes.length) || 0;
-        
-        const healthy = healthyPods + healthyDeployments + healthyServices;
-        const unhealthy = (degradedPods + criticalPods) + (degradedDeployments + criticalDeployments) + unhealthyServices;
-        const total = totalPods + totalDeployments + totalServices + totalNodes;
-        const percentage = total > 0 ? Math.round((healthy / total) * 100) : 0;
-        
-        html += `<p class="mb-2"><span class="font-medium text-gray-900 dark:text-white">Total Resources:</span> <span class="ml-2">${total}</span></p>`;
-        html += `<p class="mb-2"><span class="font-medium text-gray-900 dark:text-white">Healthy:</span> <span class="ml-2 text-green-600 dark:text-green-400">${healthy}</span></p>`;
-        html += `<p class="mb-2"><span class="font-medium text-gray-900 dark:text-white">Unhealthy:</span> <span class="ml-2 text-red-600 dark:text-red-400">${unhealthy}</span></p>`;
-        html += `<p class="mb-2"><span class="font-medium text-gray-900 dark:text-white">Health Score:</span> <span class="ml-2">${percentage}%</span></p>`;
-        
-        // Show resource breakdown
-        html += '<div class="mt-4">';
-        html += '<p class="font-medium text-gray-900 dark:text-white mb-2">Resource Breakdown:</p>';
-        html += '<div class="flex flex-wrap gap-2">';
-        
-        if (totalPods > 0) {
-            html += `<span class="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded text-xs">Pods: ${totalPods}</span>`;
-        }
-        if (totalDeployments > 0) {
-            html += `<span class="px-2 py-1 bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 rounded text-xs">Deployments: ${totalDeployments}</span>`;
-        }
-        if (totalServices > 0) {
-            html += `<span class="px-2 py-1 bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 rounded text-xs">Services: ${totalServices}</span>`;
-        }
-        if (totalNodes > 0) {
-            html += `<span class="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded text-xs">Nodes: ${totalNodes}</span>`;
-        }
-        
-        html += '</div>';
-        html += '</div>';
-    } else {
-        html = '<p class="text-gray-500 dark:text-gray-400">No health data available</p>';
+    if (!health) { detailsEl.innerHTML = '<span class="muted-text">No health data</span>'; return; }
+
+    const podCount     = health.pod_count     || 0;
+    const podRunning   = health.pod_running    || 0;
+    const podUnhealthy = podCount - podRunning;
+    const podPct = podCount > 0 ? Math.round((podRunning / podCount) * 100) : 100;
+
+    const depCount   = health.deployment_count          || 0;
+    const depHealthy = health.deployment_health?.healthy || 0;
+    const depPct = depCount > 0 ? Math.round((depHealthy / depCount) * 100) : 100;
+
+    const nodeCount = (health.nodes && health.nodes.length) || 0;
+    const nodeReady = (health.nodes && health.nodes.filter(n => n.ready !== false).length) || nodeCount;
+    const nodePct = nodeCount > 0 ? Math.round((nodeReady / nodeCount) * 100) : 100;
+
+    function circleColor(pct) { return pct >= 80 ? 'status-healthy' : pct >= 50 ? 'status-warning' : 'status-critical'; }
+
+    let html = `
+        <div class="dash-circles">
+            <div class="dash-circle-item" onclick="navigateToTab('pods')" title="View pods">
+                <div class="circular-progress ${circleColor(podPct)}">
+                    <svg class="circular-svg" width="80" height="80">
+                        <circle class="circular-bg" cx="40" cy="40" r="33"/>
+                        <circle class="circular-bar" cx="40" cy="40" r="33"
+                            style="stroke-dasharray:207;stroke-dashoffset:${207 - (207 * podPct) / 100};"/>
+                    </svg>
+                    <div class="circular-text"><div class="circular-value" style="font-size:18px;">${podCount}</div></div>
+                </div>
+                <div class="dash-circle-label">Pods</div>
+                <div class="dash-circle-sub">
+                    <span style="color:var(--success)">${podRunning}↑</span>
+                    ${podUnhealthy > 0 ? `<span style="color:var(--danger);cursor:pointer" onclick="event.stopPropagation();navigateToPodFilter('unhealthy')">${podUnhealthy}↓</span>` : ''}
+                </div>
+            </div>
+            <div class="dash-circle-item" onclick="navigateToTab('deployments')" title="View deployments">
+                <div class="circular-progress ${circleColor(depPct)}">
+                    <svg class="circular-svg" width="80" height="80">
+                        <circle class="circular-bg" cx="40" cy="40" r="33"/>
+                        <circle class="circular-bar" cx="40" cy="40" r="33"
+                            style="stroke-dasharray:207;stroke-dashoffset:${207 - (207 * depPct) / 100};"/>
+                    </svg>
+                    <div class="circular-text"><div class="circular-value" style="font-size:18px;">${depCount}</div></div>
+                </div>
+                <div class="dash-circle-label">Deployments</div>
+                <div class="dash-circle-sub">
+                    <span style="color:var(--success)">${depHealthy}↑</span>
+                    ${depCount - depHealthy > 0 ? `<span style="color:var(--danger)">${depCount - depHealthy}↓</span>` : ''}
+                </div>
+            </div>
+            <div class="dash-circle-item" onclick="navigateToTab('cluster')" title="View nodes">
+                <div class="circular-progress ${circleColor(nodePct)}">
+                    <svg class="circular-svg" width="80" height="80">
+                        <circle class="circular-bg" cx="40" cy="40" r="33"/>
+                        <circle class="circular-bar" cx="40" cy="40" r="33"
+                            style="stroke-dasharray:207;stroke-dashoffset:${207 - (207 * nodePct) / 100};"/>
+                    </svg>
+                    <div class="circular-text"><div class="circular-value" style="font-size:18px;">${nodeCount}</div></div>
+                </div>
+                <div class="dash-circle-label">Nodes</div>
+                <div class="dash-circle-sub">
+                    <span style="color:var(--success)">${nodeReady}↑</span>
+                    ${nodeCount - nodeReady > 0 ? `<span style="color:var(--danger)">${nodeCount - nodeReady}↓</span>` : ''}
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Services health bar
+    const svcWith    = health.service_health?.with_endpoints    || 0;
+    const svcWithout = health.service_health?.without_endpoints || 0;
+    const svcTotal   = health.service_count || 0;
+    if (svcTotal > 0) {
+        html += `
+            <div class="dash-svc-health" onclick="navigateToTab('services')" title="View services">
+                <span class="dash-svc-label">Services</span>
+                <div class="dash-svc-bar-wrap">
+                    <div class="dash-svc-bar" style="width:${Math.round((svcWith / svcTotal) * 100)}%"></div>
+                </div>
+                <span class="dash-svc-meta">${svcWith} / ${svcTotal} with endpoints</span>
+                ${svcWithout > 0 ? `<span class="dash-svc-warn">${svcWithout} empty</span>` : ''}
+            </div>
+        `;
     }
-    
+
+    // Unhealthy pods — inline, fills the empty space in this panel
+    // Succeeded/Completed = healthy terminal states (job pods), exclude them
+    const unhealthyPods = (podsArray || []).filter(p =>
+        !['Running', 'Succeeded', 'Completed'].includes(p.status) ||
+        (p.status === 'Running' && p.ready_containers < p.total_containers)
+    );
+    html += `
+        <div class="dash-unhealthy-section">
+            <div class="dash-unhealthy-section-title">
+                Unhealthy Workloads
+                ${unhealthyPods.length > 0 ? `<span class="dash-badge-danger">${unhealthyPods.length}</span>` : ''}
+            </div>
+    `;
+    if (unhealthyPods.length === 0) {
+        html += `
+            <div class="dash-all-healthy">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg>
+                All workloads healthy
+            </div>
+        `;
+    } else {
+        unhealthyPods.slice(0, 6).forEach(pod => {
+            const color = pod.status === 'Failed' ? 'var(--danger)' : 'var(--warning)';
+            const restarts = pod.restart_count || pod.restarts || 0;
+            html += `
+                <div class="dash-unhealthy-row" onclick="navigateToTab('pods','${pod.name}')" title="Find in Pods tab">
+                    <span class="dash-unhealthy-dot" style="background:${color}"></span>
+                    <span class="dash-unhealthy-name">${pod.name}</span>
+                    <span class="dash-unhealthy-status" style="color:${color}">${pod.status}</span>
+                    ${restarts > 0 ? `<span class="dash-unhealthy-restarts">${restarts}↻</span>` : ''}
+                </div>
+            `;
+        });
+        if (unhealthyPods.length > 6) {
+            html += `<div class="dash-see-more" onclick="navigateToPodFilter('unhealthy')">See all ${unhealthyPods.length} unhealthy pods →</div>`;
+        }
+    }
+    html += `</div>`;
+
     detailsEl.innerHTML = html;
+}
+
+function renderDashboardResourceGrid(health) {
+    const el = document.getElementById('dashResourceGrid');
+    if (!el) return;
+
+    // tab: direct tab name, rtype: pre-filter Explorer by this K8s type
+    const items = [
+        { label: 'StatefulSets', count: health.summary?.statefulsets || 0, sub: `${health.summary?.statefulsets_ready || 0} ready`,    rtype: 'StatefulSet', icon: '<rect x="2" y="3" width="20" height="18" rx="2"/><path d="M2 9h20M9 21V9"/>' },
+        { label: 'DaemonSets',   count: health.summary?.daemonsets   || 0, sub: `${health.summary?.daemonsets_ready   || 0} ready`,    rtype: 'DaemonSet',   icon: '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>' },
+        { label: 'Ingresses',    count: health.summary?.ingresses     || 0, sub: '',                                                     tab: 'ingresses',     icon: '<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/>' },
+        { label: 'Jobs',         count: health.summary?.jobs         || 0, sub: `${health.summary?.jobs_succeeded     || 0} succeeded`, tab: 'cronjobs',      icon: '<rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><path d="M6 6h.01M6 18h.01"/>' },
+        { label: 'CronJobs',     count: health.summary?.cronjobs     || 0, sub: `${health.summary?.cronjobs_suspended || 0} suspended`, tab: 'cronjobs',      icon: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>' },
+        { label: 'ConfigMaps',   count: health.summary?.configmaps   || 0, sub: '',                                                     tab: 'configmaps',    icon: '<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>' },
+        { label: 'Secrets',      count: health.summary?.secrets      || 0, sub: '',                                                     tab: 'secrets',       icon: '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>' },
+        { label: 'PVCs',         count: health.summary?.pvcs         || 0, sub: `${health.summary?.pvcs_bound         || 0} bound`,    tab: 'pvpvc',         icon: '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>' },
+    ];
+
+    let html = `<div class="dash-resource-grid">`;
+    items.forEach(item => {
+        // Items with rtype go to Resource Explorer pre-filtered; others go to their direct tab
+        const onclick = item.rtype
+            ? `navigateToResourceType('${item.rtype}')`
+            : `navigateToTab('${item.tab}')`;
+        html += `
+            <div class="dash-resource-card" onclick="${onclick}" title="Go to ${item.label}">
+                <div class="dash-resource-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${item.icon}</svg>
+                </div>
+                <div class="dash-resource-count">${item.count}</div>
+                <div class="dash-resource-label">${item.label}</div>
+                ${item.sub ? `<div class="dash-resource-sub">${item.sub}</div>` : '<div class="dash-resource-sub">&nbsp;</div>'}
+            </div>
+        `;
+    });
+    html += `</div>`;
+    el.innerHTML = html;
+}
+
+function renderDashboardEvents(health) {
+    const el = document.getElementById('dashEventsPanel');
+    if (!el) return;
+
+    const events = health.cluster_events || [];
+    if (events.length === 0) {
+        el.style.display = 'none';
+        return;
+    }
+
+    const warnCount = events.filter(e => e.type === 'Warning' || e.type === 'Error').length;
+    let html = `
+        <div class="panel" style="margin-bottom:16px;">
+            <div class="panel-header">
+                <span style="display:flex;align-items:center;gap:6px;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                    Recent Events
+                    ${warnCount > 0 ? `<span class="dash-badge-danger">${warnCount} warnings</span>` : ''}
+                </span>
+            </div>
+            <div class="panel-body dash-events-grid">
+    `;
+    events.slice(0, 12).forEach(event => {
+        const isWarning = event.type === 'Warning' || event.type === 'Error';
+        const time = event.time ? new Date(event.time).toLocaleString('en-US', {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : '';
+        html += `
+            <div class="dash-event-row ${isWarning ? 'dash-event-warn' : 'dash-event-info'}">
+                <div class="dash-event-reason">${event.reason || 'Event'}</div>
+                <div class="dash-event-msg">${event.message || ''}</div>
+                <div class="dash-event-meta">${event.resource ? event.resource + ' · ' : ''}${event.count > 1 ? event.count + 'x · ' : ''}${time}</div>
+            </div>
+        `;
+    });
+    html += `</div></div>`;
+    el.innerHTML = html;
+    el.style.display = '';
 }
 
 /* ============================================
@@ -555,7 +849,7 @@ async function loadIngresses() {
     container.innerHTML = '<div class="loading">Loading ingresses...</div>';
 
     try {
-        const response = await fetch(`/api/ingresses/${currentNamespace}`);
+        const response = await fetch(`/api/ingresses/${nsForApi()}`);
 
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -648,7 +942,7 @@ function renderIngressesTable(ingresses, container) {
 
         // Main row - clickable to open detail panel
         html += `
-            <tr class="clickable-row" onclick="openDetailPanel('ingressesDetails', 'Ingress', '${currentNamespace}', '${ing.name}', window.ingressesData[${idx}])">
+            <tr class="clickable-row" onclick="openDetailPanel('ingressesDetails', 'Ingress', '${currentNamespace}', '${ing.name}')">
                 <td>🌐 ${ing.name}</td>
                 <td><span class="badge-host">${hostDisplay}</span></td>
                 <td>${ing.ingress_class || '-'}</td>
@@ -801,7 +1095,7 @@ async function loadServices() {
     container.innerHTML = '<div class="loading">Loading services...</div>';
 
     try {
-        const response = await fetch(`/api/services/${currentNamespace}`);
+        const response = await fetch(`/api/services/${nsForApi()}`);
 
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -874,7 +1168,7 @@ function renderServicesTable(services, container) {
         
         // Main row - clickable to open detail panel
         html += `
-            <tr class="clickable-row" onclick="openDetailPanel('servicesDetails', 'Service', '${currentNamespace}', '${svc.name}', window.servicesData[${idx}])">
+            <tr class="clickable-row" onclick="openDetailPanel('servicesDetails', 'Service', '${currentNamespace}', '${svc.name}')">
                 <td>🔗 ${svc.name}</td>
                 <td><span class="badge-${typeClass}">${svc.type || 'ClusterIP'}</span></td>
                 <td><span class="mono-text">${svc.cluster_ip || '-'}</span></td>
@@ -984,7 +1278,7 @@ async function loadConfigMaps() {
     container.innerHTML = '<div class="loading">Loading config maps...</div>';
 
     try {
-        const response = await fetch(`/api/configmaps/${currentNamespace}`);
+        const response = await fetch(`/api/configmaps/${nsForApi()}`);
         const data = await response.json();
         const configmaps = data.configmaps || [];
 
@@ -1042,7 +1336,7 @@ function renderConfigMapsTable(configmaps, container) {
         
         // Main row - clickable to open detail panel
         html += `
-            <tr class="clickable-row" onclick="openDetailPanel('configmapsDetails', 'ConfigMap', '${currentNamespace}', '${cm.name}', window.configMapsData[${idx}])">
+            <tr class="clickable-row" onclick="openDetailPanel('configmapsDetails', 'ConfigMap', '${currentNamespace}', '${cm.name}')">
                 <td>📝 ${cm.name}</td>
                 <td><span class="badge-info">${keys.length}</span></td>
                 <td>${cm.age || '-'}</td>
@@ -1115,7 +1409,7 @@ async function loadSecrets() {
     container.innerHTML = '<div class="loading">Loading secrets...</div>';
 
     try {
-        const response = await fetch(`/api/secrets/${currentNamespace}`);
+        const response = await fetch(`/api/secrets/${nsForApi()}`);
         const data = await response.json();
         const secrets = data.secrets || [];
 
@@ -1179,7 +1473,7 @@ function renderSecretsTable(secrets, container) {
         
         // Main row - clickable to open detail panel
         html += `
-            <tr class="clickable-row" onclick="openDetailPanel('secretsDetails', 'Secret', '${currentNamespace}', '${sec.name}', window.secretsData[${idx}])">
+            <tr class="clickable-row" onclick="openDetailPanel('secretsDetails', 'Secret', '${currentNamespace}', '${sec.name}')">
                 <td>🔐 ${sec.name}</td>
                 <td><span class="badge-secondary">${sec.type || 'Opaque'}</span></td>
                 <td><span class="badge-info">${keys.length}</span></td>
@@ -1252,7 +1546,7 @@ async function loadPods() {
     container.innerHTML = '<div class="loading">Loading pods...</div>';
 
     try {
-        const response = await fetch(`/api/pods/${currentNamespace}`);
+        const response = await fetch(`/api/pods/${nsForApi()}`);
 
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -1321,7 +1615,7 @@ async function loadPods() {
                         const isError = statusDetails.includes('Error') || statusDetails.includes('Failed') || statusDetails.includes('exit code');
                         const detailsClass = isError ? 'badge-danger' : statusDetails === 'OK' ? 'badge-success' : 'badge-warning';
                         return `
-                        <tr class="clickable-row" onclick="openDetailPanel('podsDetails', 'Pod', '${currentNamespace}', '${pod.name}', window.podsData[${idx}])">
+                        <tr class="clickable-row" onclick="openDetailPanel('podsDetails', 'Pod', '${currentNamespace}', '${pod.name}')">
                             <td>📦 ${pod.name || 'N/A'}</td>
                             <td><span class="badge ${['Running', 'Succeeded', 'Completed'].includes(pod.status) ? 'badge-success' : pod.status === 'Pending' ? 'badge-warning' : ['Failed', 'Error', 'CrashLoopBackOff', 'ImagePullBackOff'].includes(pod.status) ? 'badge-danger' : 'badge-secondary'}">${pod.status || 'Unknown'}</span></td>
                             <td>${pod.ready_containers || 0}/${pod.total_containers || 0}</td>
@@ -1335,10 +1629,40 @@ async function loadPods() {
                 </tbody>
             </table>
         `;
+
+        // Apply dashboard filter if navigated from dashboard
+        if (window._podStatusFilter === 'unhealthy') {
+            window._podStatusFilter = null;
+            const rows = container.querySelectorAll('tbody tr');
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                const statusText = cells[1]?.querySelector('.badge')?.textContent.trim() || '';
+                const readyText  = cells[2]?.textContent.trim() || ''; // e.g. "2/2" or "0/2"
+                const [readyN, totalN] = readyText.split('/').map(Number);
+                const notReady = !isNaN(readyN) && !isNaN(totalN) && readyN < totalN;
+                const isHealthy = (statusText === 'Running' && !notReady)
+                               || statusText === 'Succeeded'
+                               || statusText === 'Completed';
+                row.style.display = isHealthy ? 'none' : '';
+            });
+            // Show a filter indicator
+            const indicator = document.createElement('div');
+            indicator.className = 'dash-filter-indicator';
+            indicator.innerHTML = `Showing unhealthy pods only · <span onclick="clearPodFilter()" style="cursor:pointer;text-decoration:underline">Clear filter</span>`;
+            container.insertAdjacentElement('beforebegin', indicator);
+        }
     } catch (error) {
         console.error('Error loading pods:', error);
         container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error loading pods</p><small>${error.message}</small></div>`;
     }
+}
+
+function clearPodFilter() {
+    // Restore all hidden pod rows and remove indicator
+    const indicator = document.querySelector('.dash-filter-indicator');
+    if (indicator) indicator.remove();
+    const rows = document.querySelectorAll('#podsContent tbody tr');
+    rows.forEach(r => r.style.display = '');
 }
 
 /* ============================================
@@ -1350,7 +1674,7 @@ async function loadDeployments() {
     container.innerHTML = '<div class="loading">Loading deployments...</div>';
 
     try {
-        const response = await fetch(`/api/deployments/${currentNamespace}`);
+        const response = await fetch(`/api/deployments/${nsForApi()}`);
 
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -1423,7 +1747,7 @@ function renderDeploymentsTable(deployments, container) {
         
         // Main row - clickable to open detail panel
         html += `
-            <tr class="clickable-row" onclick="openDetailPanel('deploymentsDetails', 'Deployment', '${currentNamespace}', '${dep.name}', window.deploymentsData[${idx}])">
+            <tr class="clickable-row" onclick="openDetailPanel('deploymentsDetails', 'Deployment', '${currentNamespace}', '${dep.name}')">
                 <td>🏗️ ${dep.name || 'Unknown'}</td>
                 <td><span class="badge-${ready ? 'success' : 'warning'}">${dep.ready_replicas || 0}/${dep.desired_replicas || 0}</span></td>
                 <td><span class="badge-info">${dep.updated_replicas || 0}</span></td>
@@ -1502,7 +1826,7 @@ async function loadHealth() {
     container.innerHTML = '<div class="loading">Analyzing cluster health...</div>';
 
     try {
-        const response = await fetch(`/api/health/${currentNamespace}`);
+        const response = await fetch(`/api/health/${nsForApi()}`);
         const data = await response.json();
 
         // Calculate percentages
@@ -1813,7 +2137,7 @@ async function loadClusterNodes() {
     container.innerHTML = '<div class="loading">Loading cluster nodes...</div>';
 
     try {
-        const response = await fetch(`/api/health/${currentNamespace}`);
+        const response = await fetch(`/api/health/${nsForApi()}`);
         const data = await response.json();
 
         if (!data.nodes || data.nodes.length === 0) {
@@ -2225,8 +2549,8 @@ async function loadCronJobsAndJobs() {
     try {
         // Fetch cronjobs and pods in parallel
         const [cronjobsResponse, podsResponse] = await Promise.all([
-            fetch(`/api/cronjobs/${currentNamespace}`),
-            fetch(`/api/pods/${currentNamespace}`)
+            fetch(`/api/cronjobs/${nsForApi()}`),
+            fetch(`/api/pods/${nsForApi()}`)
         ]);
         
         if (!cronjobsResponse.ok) {
@@ -2302,7 +2626,7 @@ function renderCronJobsTable(cronjobs, container) {
             const nextRunIn = cj.next_run_in || '-';
 
             html += `
-                <tr class="clickable-row" onclick="openDetailPanel('cronjobsDetails', 'CronJob', '${currentNamespace}', '${cj.name}', window.cronJobsData[${idx}])">
+                <tr class="clickable-row" onclick="openDetailPanel('cronjobsDetails', 'CronJob', '${currentNamespace}', '${cj.name}')">
                     <td>⏰ ${cj.name}</td>
                     <td><code>${cj.schedule || '-'}</code></td>
                     <td><span class="badge-info">${nextRunIn}</span></td>
@@ -2401,7 +2725,7 @@ async function loadReleases() {
     container.innerHTML = '<div class="loading">Loading release information...</div>';
 
     try {
-        const response = await fetch(`/api/releases/${currentNamespace}`);
+        const response = await fetch(`/api/releases/${nsForApi()}`);
         const releases = await response.json();
 
         if (releases.length === 0) {
@@ -2513,7 +2837,7 @@ async function loadPVPVC() {
     container.innerHTML = '<div class="loading">Loading PV/PVC information...</div>';
 
     try {
-        const response = await fetch(`/api/pvpvc/${currentNamespace}`);
+        const response = await fetch(`/api/pvpvc/${nsForApi()}`);
 
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -2590,7 +2914,7 @@ function renderPVPVCTable(data, container) {
             const podCount = pvc.pod_count || 0;
 
             html += `
-                <tr class="clickable-row" onclick="openDetailPanel('pvpvcDetails', 'PersistentVolumeClaim', '${currentNamespace}', '${pvc.name}', window.pvpvcData.pvcs[${idx}])">
+                <tr class="clickable-row" onclick="openDetailPanel('pvpvcDetails', 'PersistentVolumeClaim', '${currentNamespace}', '${pvc.name}')">
                     <td>💾 ${pvc.name}</td>
                     <td><span class="badge ${statusClass}">${pvc.status}</span></td>
                     <td>${storage}</td>
@@ -2648,70 +2972,227 @@ function renderPVPVCTable(data, container) {
 
 function renderPVCDetails(pvc) {
     let detailsHtml = '<div class="ingress-details-grid">';
-    
+
+    // Basic Info
+    const accessModes = (pvc.access_modes || []).join(', ') || '-';
+    const requestedStorage = pvc.requested_storage || '-';
+    const actualStorage = pvc.actual_storage || pvc.storage_size || '-';
+    const statusClass = pvc.status === 'Bound' ? 'success' :
+                        pvc.status === 'Pending' ? 'warning' : 'danger';
+
+    detailsHtml += `
+        <div class="ingress-rule-card">
+            <div class="ingress-rule-header">
+                <strong>📋 Claim Details</strong>
+            </div>
+            <div class="ingress-paths">
+                <div class="ingress-path-item">
+                    <div class="path-route">
+                        <span class="path-badge">STATUS</span>
+                        <span class="badge badge-${statusClass}">${pvc.status || '-'}</span>
+                    </div>
+                </div>
+                <div class="ingress-path-item">
+                    <div class="path-route">
+                        <span class="path-badge">NAMESPACE</span>
+                        <code>${pvc.namespace || '-'}</code>
+                    </div>
+                </div>
+                <div class="ingress-path-item">
+                    <div class="path-route">
+                        <span class="path-badge">ACCESS MODES</span>
+                        <code>${accessModes}</code>
+                    </div>
+                </div>
+                <div class="ingress-path-item">
+                    <div class="path-route">
+                        <span class="path-badge">REQUESTED</span>
+                        <code>${requestedStorage}</code>
+                    </div>
+                    <div class="path-backend">
+                        <span class="text-muted">Actual provisioned: ${actualStorage}</span>
+                    </div>
+                </div>
+                ${pvc.storage_class ? `
+                <div class="ingress-path-item">
+                    <div class="path-route">
+                        <span class="path-badge">STORAGE CLASS</span>
+                        <code>${pvc.storage_class}</code>
+                    </div>
+                </div>` : ''}
+                ${pvc.volume_mode ? `
+                <div class="ingress-path-item">
+                    <div class="path-route">
+                        <span class="path-badge">VOLUME MODE</span>
+                        <code>${pvc.volume_mode}</code>
+                    </div>
+                </div>` : ''}
+                ${pvc.created_at ? `
+                <div class="ingress-path-item">
+                    <div class="path-route">
+                        <span class="path-badge">CREATED</span>
+                        <code>${pvc.created_at}</code>
+                    </div>
+                    <div class="path-backend">
+                        <span class="text-muted">Age: ${pvc.age_days || 0} day(s)</span>
+                    </div>
+                </div>` : ''}
+            </div>
+        </div>
+    `;
+
+    // PV Details
+    if (pvc.pv_details) {
+        const pv = pvc.pv_details;
+        const pvDetails = pv.volume_details || {};
+        let driverRows = '';
+
+        if (pv.volume_type === 'CSI' && pvDetails.driver) {
+            driverRows += `
+                <div class="ingress-path-item">
+                    <div class="path-route">
+                        <span class="path-badge">DRIVER</span>
+                        <code>${pvDetails.driver}</code>
+                    </div>
+                    ${pvDetails.fsType ? `<div class="path-backend"><span class="text-muted">fsType: ${pvDetails.fsType}</span></div>` : ''}
+                </div>
+                <div class="ingress-path-item">
+                    <div class="path-route">
+                        <span class="path-badge">VOLUME HANDLE</span>
+                        <code>${pvDetails.volumeHandle || '-'}</code>
+                    </div>
+                </div>
+            `;
+        } else if (pv.volume_type === 'NFS' && pvDetails.server) {
+            driverRows += `
+                <div class="ingress-path-item">
+                    <div class="path-route">
+                        <span class="path-badge">NFS SERVER</span>
+                        <code>${pvDetails.server}${pvDetails.path || ''}</code>
+                    </div>
+                </div>
+            `;
+        } else if (pv.volume_type === 'AWS EBS' && pvDetails.volumeID) {
+            driverRows += `
+                <div class="ingress-path-item">
+                    <div class="path-route">
+                        <span class="path-badge">EBS VOLUME</span>
+                        <code>${pvDetails.volumeID}</code>
+                    </div>
+                    ${pvDetails.fsType ? `<div class="path-backend"><span class="text-muted">fsType: ${pvDetails.fsType}</span></div>` : ''}
+                </div>
+            `;
+        } else if ((pv.volume_type === 'HostPath' || pv.volume_type === 'Local') && pvDetails.path) {
+            driverRows += `
+                <div class="ingress-path-item">
+                    <div class="path-route">
+                        <span class="path-badge">PATH</span>
+                        <code>${pvDetails.path}</code>
+                    </div>
+                </div>
+            `;
+        }
+
+        detailsHtml += `
+            <div class="ingress-rule-card">
+                <div class="ingress-rule-header">
+                    <strong>💾 Persistent Volume</strong>
+                </div>
+                <div class="ingress-paths">
+                    <div class="ingress-path-item">
+                        <div class="path-route">
+                            <span class="path-badge">NAME</span>
+                            <code>${pvc.volume_name || pv.name || 'N/A'}</code>
+                        </div>
+                        <div class="path-backend">
+                            <span class="text-muted">Status: ${pv.status || '-'}</span>
+                        </div>
+                    </div>
+                    <div class="ingress-path-item">
+                        <div class="path-route">
+                            <span class="path-badge">TYPE</span>
+                            <code>${pv.volume_type || 'Unknown'}</code>
+                        </div>
+                        <div class="path-backend">
+                            <span class="text-muted">Capacity: ${pv.capacity || '-'} | Mode: ${pv.volume_mode || 'Filesystem'}</span>
+                        </div>
+                    </div>
+                    <div class="ingress-path-item">
+                        <div class="path-route">
+                            <span class="path-badge">RECLAIM</span>
+                            <code>${pv.reclaim_policy || 'Retain'}</code>
+                        </div>
+                    </div>
+                    ${driverRows}
+                </div>
+            </div>
+        `;
+    }
+
     // Pods using this PVC
     if (pvc.pod_details && pvc.pod_details.length > 0) {
+        detailsHtml += `
+            <div class="ingress-rule-card">
+                <div class="ingress-rule-header">
+                    <strong>📦 Pods Using This Volume (${pvc.pod_details.length})</strong>
+                </div>
+                <div class="ingress-paths">
+        `;
+
+        pvc.pod_details.forEach(pod => {
+            const podStatusClass = pod.status === 'Running' ? 'success' :
+                                   pod.status === 'Pending' ? 'warning' : 'danger';
+            detailsHtml += `
+                <div class="ingress-path-item">
+                    <div class="path-route">
+                        <span class="path-badge ${podStatusClass}">${pod.status}</span>
+                        <code>${pod.name}</code>
+                    </div>
+                    <div class="path-backend">
+                        <span class="text-muted">Node: ${pod.node || 'N/A'} | Restarts: ${pod.restart_count || 0} | Age: ${pod.age_days || 0}d</span>
+                    </div>
+                </div>
+            `;
+        });
+
+        detailsHtml += '</div></div>';
+    } else {
         detailsHtml += `
             <div class="ingress-rule-card">
                 <div class="ingress-rule-header">
                     <strong>📦 Pods Using This Volume</strong>
                 </div>
                 <div class="ingress-paths">
-        `;
-        
-        pvc.pod_details.forEach(pod => {
-            const statusClass = pod.status === 'Running' ? 'success' : 
-                               pod.status === 'Pending' ? 'warning' : 'danger';
-            detailsHtml += `
-                <div class="ingress-path-item">
-                    <div class="path-route">
-                        <span class="path-badge ${statusClass}">${pod.status}</span>
-                        <code>${pod.name}</code>
-                    </div>
-                    <div class="path-backend">
-                        <span class="text-muted">Node: ${pod.node || 'N/A'} | Restarts: ${pod.restart_count || 0}</span>
-                    </div>
-                </div>
-            `;
-        });
-        
-        detailsHtml += '</div></div>';
-    }
-    
-    // PV Details
-    if (pvc.pv_details) {
-        const pv = pvc.pv_details;
-        detailsHtml += `
-            <div class="ingress-rule-card">
-                <div class="ingress-rule-header">
-                    <strong>💾 Persistent Volume Details</strong>
-                </div>
-                <div class="ingress-paths">
                     <div class="ingress-path-item">
-                        <div class="path-route">
-                            <span class="path-badge">VOLUME</span>
-                            <code>${pvc.volume_name || 'N/A'}</code>
-                        </div>
-                        <div class="path-backend">
-                            <span class="text-muted">Type: ${pv.volume_type || 'Unknown'} | Capacity: ${pv.capacity}</span>
-                        </div>
+                        <div class="path-route"><span class="text-muted">No pods currently using this volume</span></div>
                     </div>
-                    ${pvc.storage_class ? `
-                    <div class="ingress-path-item">
-                        <div class="path-route">
-                            <span class="path-badge">CLASS</span>
-                            <code>${pvc.storage_class}</code>
-                        </div>
-                        <div class="path-backend">
-                            <span class="text-muted">Reclaim: ${pv.reclaim_policy || 'Retain'}</span>
-                        </div>
-                    </div>
-                    ` : ''}
                 </div>
             </div>
         `;
     }
-    
+
+    // Labels
+    if (pvc.labels && Object.keys(pvc.labels).length > 0) {
+        detailsHtml += `
+            <div class="ingress-rule-card">
+                <div class="ingress-rule-header">
+                    <strong>🏷️ Labels</strong>
+                </div>
+                <div class="ingress-paths">
+                    ${Object.entries(pvc.labels).map(([k, v]) => `
+                        <div class="ingress-path-item">
+                            <div class="path-route">
+                                <span class="path-badge">LABEL</span>
+                                <code>${k}</code>
+                            </div>
+                            <div class="path-backend"><span class="text-muted">${v}</span></div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
     detailsHtml += '</div>';
     return detailsHtml;
 }
@@ -2817,7 +3298,7 @@ async function loadAllResources() {
     try {
         const startTime = Date.now();
         const typeFilter = resourceType !== 'all' ? `&resource_type=${resourceType}` : '';
-        const url = `/api/resources/${currentNamespace}?limit=500${typeFilter}&lightweight=true`;
+        const url = `/api/resources/${nsForApi()}?limit=500${typeFilter}&lightweight=true`;
         console.log('Fetching resources from:', url);
         
         const response = await fetch(url);

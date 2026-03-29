@@ -22,7 +22,7 @@ func getAllResources(application *app.App) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		vars := mux.Vars(r)
-		namespace := vars["namespace"]
+		namespace := resolveNamespace(vars["namespace"])
 
 		resourceType := r.URL.Query().Get("resource_type")
 		lightweight := r.URL.Query().Get("lightweight") == "true"
@@ -406,7 +406,7 @@ func getResourceDetails(application *app.App) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		vars := mux.Vars(r)
 		resourceType := vars["type"]
-		namespace := vars["namespace"]
+		namespace := resolveNamespace(vars["namespace"])
 		name := vars["name"]
 
 		ctx := r.Context()
@@ -503,7 +503,7 @@ func getIngresses(application *app.App) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		vars := mux.Vars(r)
-		namespace := vars["namespace"]
+		namespace := resolveNamespace(vars["namespace"])
 
 		ingresses, err := application.K8sClient.Clientset.NetworkingV1().Ingresses(namespace).List(r.Context(), metav1.ListOptions{})
 		if err != nil {
@@ -603,7 +603,7 @@ func getServices(application *app.App) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		vars := mux.Vars(r)
-		namespace := vars["namespace"]
+		namespace := resolveNamespace(vars["namespace"])
 
 		// Check cache first
 		cacheKey := fmt.Sprintf("services:%s", namespace)
@@ -644,7 +644,7 @@ func getPods(application *app.App) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		vars := mux.Vars(r)
-		namespace := vars["namespace"]
+		namespace := resolveNamespace(vars["namespace"])
 
 		// Check cache first
 		cacheKey := fmt.Sprintf("pods:%s", namespace)
@@ -706,7 +706,7 @@ func getDeployments(application *app.App) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		vars := mux.Vars(r)
-		namespace := vars["namespace"]
+		namespace := resolveNamespace(vars["namespace"])
 
 		// Check cache first
 		cacheKey := fmt.Sprintf("deployments:%s", namespace)
@@ -788,7 +788,7 @@ func getHealth(application *app.App) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		vars := mux.Vars(r)
-		namespace := vars["namespace"]
+		namespace := resolveNamespace(vars["namespace"])
 		ctx := r.Context()
 
 		// Check cache first
@@ -809,6 +809,12 @@ func getHealth(application *app.App) http.HandlerFunc {
 		var ingressCount int
 		var eventList []map[string]interface{}
 		var podCount, depCount, svcCount int
+		var statefulSetCount, statefulSetsReady int
+		var daemonSetCount, daemonSetsReady int
+		var jobCount, jobsSucceeded int
+		var cronJobCount, cronJobsSuspended int
+		var configMapCount, secretCount int
+		var pvcCount, pvcsBound int
 
 		// Fetch nodes (cache for 5 minutes - nodes don't change often)
 		wg.Add(1)
@@ -827,17 +833,33 @@ func getHealth(application *app.App) http.HandlerFunc {
 				mu.Lock()
 				for _, node := range nodes.Items {
 					status := "NotReady"
+					isReady := false
 					for _, cond := range node.Status.Conditions {
 						if cond.Type == "Ready" && cond.Status == "True" {
 							status = "Ready"
+							isReady = true
 						}
 					}
+
+					roles := []string{}
+					for label := range node.Labels {
+						if label == "node-role.kubernetes.io/control-plane" || label == "node-role.kubernetes.io/master" {
+							roles = append(roles, "control-plane")
+						} else if label == "node-role.kubernetes.io/worker" {
+							roles = append(roles, "worker")
+						}
+					}
+
 					nodeList = append(nodeList, map[string]interface{}{
-						"name":   node.Name,
-						"status": status,
-						"cpu":    node.Status.Capacity.Cpu().String(),
-						"memory": node.Status.Capacity.Memory().String(),
-						"os":     node.Status.NodeInfo.OSImage,
+						"name":            node.Name,
+						"status":          status,
+						"ready":           isReady,
+						"cpu":             node.Status.Capacity.Cpu().String(),
+						"memory":          node.Status.Capacity.Memory().String(),
+						"os":              node.Status.NodeInfo.OSImage,
+						"kernel_version":  node.Status.NodeInfo.KernelVersion,
+						"kubelet_version": node.Status.NodeInfo.KubeletVersion,
+						"roles":           roles,
 					})
 				}
 				application.Cache.Set(nodeCacheKey, nodeList, 5*time.Minute)
@@ -950,6 +972,119 @@ func getHealth(application *app.App) http.HandlerFunc {
 			}
 		}()
 
+		// Fetch statefulsets
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			ssList, err := application.K8sClient.Clientset.AppsV1().StatefulSets(namespace).List(ctx, metav1.ListOptions{})
+			if err == nil {
+				mu.Lock()
+				statefulSetCount = len(ssList.Items)
+				for _, ss := range ssList.Items {
+					desired := int32(1)
+					if ss.Spec.Replicas != nil {
+						desired = *ss.Spec.Replicas
+					}
+					if ss.Status.ReadyReplicas >= desired {
+						statefulSetsReady++
+					}
+				}
+				mu.Unlock()
+			}
+		}()
+
+		// Fetch daemonsets
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			dsList, err := application.K8sClient.Clientset.AppsV1().DaemonSets(namespace).List(ctx, metav1.ListOptions{})
+			if err == nil {
+				mu.Lock()
+				daemonSetCount = len(dsList.Items)
+				for _, ds := range dsList.Items {
+					if ds.Status.NumberReady >= ds.Status.DesiredNumberScheduled {
+						daemonSetsReady++
+					}
+				}
+				mu.Unlock()
+			}
+		}()
+
+		// Fetch jobs
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			jobList, err := application.K8sClient.Clientset.BatchV1().Jobs(namespace).List(ctx, metav1.ListOptions{})
+			if err == nil {
+				mu.Lock()
+				jobCount = len(jobList.Items)
+				for _, job := range jobList.Items {
+					if job.Status.Succeeded > 0 {
+						jobsSucceeded++
+					}
+				}
+				mu.Unlock()
+			}
+		}()
+
+		// Fetch cronjobs
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			cjList, err := application.K8sClient.Clientset.BatchV1().CronJobs(namespace).List(ctx, metav1.ListOptions{})
+			if err == nil {
+				mu.Lock()
+				cronJobCount = len(cjList.Items)
+				for _, cj := range cjList.Items {
+					if cj.Spec.Suspend != nil && *cj.Spec.Suspend {
+						cronJobsSuspended++
+					}
+				}
+				mu.Unlock()
+			}
+		}()
+
+		// Fetch configmaps
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			cmList, err := application.K8sClient.Clientset.CoreV1().ConfigMaps(namespace).List(ctx, metav1.ListOptions{})
+			if err == nil {
+				mu.Lock()
+				configMapCount = len(cmList.Items)
+				mu.Unlock()
+			}
+		}()
+
+		// Fetch secrets
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			secList, err := application.K8sClient.Clientset.CoreV1().Secrets(namespace).List(ctx, metav1.ListOptions{})
+			if err == nil {
+				mu.Lock()
+				secretCount = len(secList.Items)
+				mu.Unlock()
+			}
+		}()
+
+		// Fetch PVCs
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			pvcList, err := application.K8sClient.Clientset.CoreV1().PersistentVolumeClaims(namespace).List(ctx, metav1.ListOptions{})
+			if err == nil {
+				mu.Lock()
+				pvcCount = len(pvcList.Items)
+				for _, pvc := range pvcList.Items {
+					if pvc.Status.Phase == "Bound" {
+						pvcsBound++
+					}
+				}
+				mu.Unlock()
+			}
+		}()
+
 		// Fetch recent events
 		wg.Add(1)
 		go func() {
@@ -1001,11 +1136,23 @@ func getHealth(application *app.App) http.HandlerFunc {
 
 			// Nested structures for detailed info
 			"summary": map[string]interface{}{
-				"nodes":       len(nodeList),
-				"ingresses":   ingressCount,
-				"services":    svcCount,
-				"deployments": depCount,
-				"pods":        podCount,
+				"nodes":              len(nodeList),
+				"ingresses":          ingressCount,
+				"services":           svcCount,
+				"deployments":        depCount,
+				"pods":               podCount,
+				"statefulsets":       statefulSetCount,
+				"statefulsets_ready": statefulSetsReady,
+				"daemonsets":         daemonSetCount,
+				"daemonsets_ready":   daemonSetsReady,
+				"jobs":               jobCount,
+				"jobs_succeeded":     jobsSucceeded,
+				"cronjobs":           cronJobCount,
+				"cronjobs_suspended": cronJobsSuspended,
+				"configmaps":         configMapCount,
+				"secrets":            secretCount,
+				"pvcs":               pvcCount,
+				"pvcs_bound":         pvcsBound,
 			},
 			"nodes": nodeList,
 			"pod_health": map[string]int{
@@ -1037,7 +1184,7 @@ func getReleases(application *app.App) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		vars := mux.Vars(r)
-		namespace := vars["namespace"]
+		namespace := resolveNamespace(vars["namespace"])
 
 		releases, err := k8s.GetReleases(r.Context(), application.K8sClient.Clientset, namespace)
 		if err != nil {
@@ -1057,7 +1204,7 @@ func getConfigMaps(application *app.App) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		vars := mux.Vars(r)
-		namespace := vars["namespace"]
+		namespace := resolveNamespace(vars["namespace"])
 
 		// Check cache
 		cacheKey := fmt.Sprintf("configmaps:%s", namespace)
@@ -1124,7 +1271,7 @@ func getSecrets(application *app.App) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		vars := mux.Vars(r)
-		namespace := vars["namespace"]
+		namespace := resolveNamespace(vars["namespace"])
 
 		// Check cache
 		cacheKey := fmt.Sprintf("secrets:%s", namespace)
@@ -1187,7 +1334,7 @@ func getPVPVC(application *app.App) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		vars := mux.Vars(r)
-		namespace := vars["namespace"]
+		namespace := resolveNamespace(vars["namespace"])
 		ctx := r.Context()
 
 		// Check cache
@@ -1628,7 +1775,7 @@ func getCronJobsAndJobs(application *app.App) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		vars := mux.Vars(r)
-		namespace := vars["namespace"]
+		namespace := resolveNamespace(vars["namespace"])
 		ctx := r.Context()
 
 		// Fetch CronJobs
