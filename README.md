@@ -14,7 +14,17 @@
 - **Health Dashboard** - Real-time cluster health with node monitoring and events
 - **Modern UI** - Dark theme with collapsible sections and responsive design
 
-<img width="1724" height="862" alt="image" src="https://github.com/user-attachments/assets/ebece4ee-cda2-4bf0-b445-272560052854" />
+## Namespace Specific Dashboard 
+<img width="1725" height="852" alt="image" src="https://github.com/user-attachments/assets/13489745-c10e-48bc-ba65-a6b5e44696aa" />
+
+## Resources Relationship Explorer
+<img width="1725" height="852" alt="image" src="https://github.com/user-attachments/assets/eb960935-93f3-4830-b7ff-06e791381b89" />
+
+## Release View 
+<img width="1725" height="852" alt="image" src="https://github.com/user-attachments/assets/8ddc65ae-7053-41af-99a5-e6eec767abdb" />
+
+## Easy Navigation between resources.
+<img width="1725" height="852" alt="image" src="https://github.com/user-attachments/assets/d91b4147-502c-4a8a-8de8-d93f425cc38a" />
 
 
 ## 🚀 Quick Start
