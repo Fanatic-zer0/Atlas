@@ -5,6 +5,11 @@ bin/
 *.so
 *.dylib
 
+# Go build cache and vendor
+vendor/
+**/.cache/
+**/go-build/
+
 # Test files
 *_test.go
 
