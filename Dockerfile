@@ -12,22 +12,14 @@ RUN apk add --no-cache ca-certificates
 
 # Copy go mod files first for better caching
 COPY go.mod go.sum ./
+RUN go mod download
 
-# Clear any cached modules and download fresh
-RUN go clean -modcache && \
-    go mod download
-
-# Copy source code
+# Copy all source code
 COPY . .
 
-# Verify module and ensure atlas is the module name (not ajna)
-RUN go list -m && \
-    go mod verify && \
-    go list -m all | head -1
-
-# Build the binary — cross-compile for the target platform with verbose output
+# Build the binary — cross-compile for the target platform
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
-    go build -v -ldflags="-w -s" -o /app/bin/atlas ./cmd/atlas
+    go build -ldflags="-w -s" -o /app/bin/atlas ./cmd/atlas
 
 # Runtime stage
 FROM alpine:3.19
