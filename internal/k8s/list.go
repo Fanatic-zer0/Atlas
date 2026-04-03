@@ -654,33 +654,90 @@ func GetReleases(ctx context.Context, cs *kubernetes.Clientset, namespace string
 			CreatedAt:      dep.CreationTimestamp.Time.Format("2006-01-02T15:04:05Z"),
 		}
 
-		// Get last deployed time from deployment status conditions or newest ReplicaSet
+		// Get last deployed time - only when image tags changed (actual code deployment)
 		var lastDeployedTime *metav1.Time
 
-		// First try: Check deployment status conditions
-		for _, condition := range dep.Status.Conditions {
-			if (condition.Type == "Progressing" || condition.Type == "Available") && condition.LastUpdateTime.Time.After(dep.CreationTimestamp.Time) {
-				if lastDeployedTime == nil || condition.LastUpdateTime.After(lastDeployedTime.Time) {
-					lastDeployedTime = &condition.LastUpdateTime
+		// Get all ReplicaSets owned by this deployment
+		rsList, err := cs.AppsV1().ReplicaSets(dep.Namespace).List(ctx, metav1.ListOptions{
+			LabelSelector: metav1.FormatLabelSelector(dep.Spec.Selector),
+		})
+		if err == nil && len(rsList.Items) > 0 {
+			// Build a map of revision -> ReplicaSet with images
+			type rsWithRevision struct {
+				revision  int
+				rs        appsv1.ReplicaSet
+				images    []string
+				timestamp metav1.Time
+			}
+
+			replicaSets := []rsWithRevision{}
+
+			for _, rs := range rsList.Items {
+				// Check if this ReplicaSet is owned by this deployment
+				isOwned := false
+				for _, owner := range rs.OwnerReferences {
+					if owner.UID == dep.UID {
+						isOwned = true
+						break
+					}
+				}
+
+				if !isOwned {
+					continue
+				}
+
+				// Get revision number from annotation
+				if revisionStr, ok := rs.Annotations["deployment.kubernetes.io/revision"]; ok {
+					revision := 0
+					if _, err := fmt.Sscanf(revisionStr, "%d", &revision); err == nil {
+						// Extract images from this ReplicaSet
+						images := []string{}
+						for _, container := range rs.Spec.Template.Spec.Containers {
+							images = append(images, container.Image)
+						}
+
+						replicaSets = append(replicaSets, rsWithRevision{
+							revision:  revision,
+							rs:        rs,
+							images:    images,
+							timestamp: rs.CreationTimestamp,
+						})
+					}
 				}
 			}
-		}
 
-		// Second try: Get the newest ReplicaSet creation time
-		if lastDeployedTime == nil {
-			rsList, err := cs.AppsV1().ReplicaSets(dep.Namespace).List(ctx, metav1.ListOptions{
-				LabelSelector: metav1.FormatLabelSelector(dep.Spec.Selector),
+			// Sort by revision number (descending - newest first)
+			sort.Slice(replicaSets, func(i, j int) bool {
+				return replicaSets[i].revision > replicaSets[j].revision
 			})
-			if err == nil && len(rsList.Items) > 0 {
-				for _, rs := range rsList.Items {
-					// Check if this ReplicaSet is owned by this deployment
-					for _, owner := range rs.OwnerReferences {
-						if owner.UID == dep.UID {
-							if lastDeployedTime == nil || rs.CreationTimestamp.After(lastDeployedTime.Time) {
-								lastDeployedTime = &rs.CreationTimestamp
+
+			// Find the most recent revision where images changed
+			if len(replicaSets) > 0 {
+				// Start with the current (highest) revision
+				lastDeployedTime = &replicaSets[0].timestamp
+
+				// Look backwards to find when images last changed
+				for i := 0; i < len(replicaSets)-1; i++ {
+					currentImages := replicaSets[i].images
+					previousImages := replicaSets[i+1].images
+
+					// Check if images are different
+					imagesChanged := false
+					if len(currentImages) != len(previousImages) {
+						imagesChanged = true
+					} else {
+						for j := range currentImages {
+							if currentImages[j] != previousImages[j] {
+								imagesChanged = true
+								break
 							}
-							break
 						}
+					}
+
+					// If images changed, this is when we last deployed
+					if imagesChanged {
+						lastDeployedTime = &replicaSets[i].timestamp
+						break
 					}
 				}
 			}
@@ -748,4 +805,90 @@ func splitLast(s, sep string) []string {
 		return []string{s}
 	}
 	return []string{s[:idx], s[idx+1:]}
+}
+
+// GetDeploymentHistory returns revision history for a deployment by querying ReplicaSets
+func GetDeploymentHistory(ctx context.Context, cs *kubernetes.Clientset, namespace, deploymentName string) ([]DeploymentRevision, error) {
+	// Get the deployment
+	deployment, err := cs.AppsV1().Deployments(namespace).Get(ctx, deploymentName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	// Get all ReplicaSets owned by this deployment
+	rsList, err := cs.AppsV1().ReplicaSets(namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: metav1.FormatLabelSelector(deployment.Spec.Selector),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	revisions := []DeploymentRevision{}
+
+	// Process each ReplicaSet
+	for _, rs := range rsList.Items {
+		// Check if this ReplicaSet is owned by this deployment
+		isOwned := false
+		for _, owner := range rs.OwnerReferences {
+			if owner.UID == deployment.UID && owner.Kind == "Deployment" {
+				isOwned = true
+				break
+			}
+		}
+
+		if !isOwned {
+			continue
+		}
+
+		// Extract revision number from annotations
+		revisionStr, ok := rs.Annotations["deployment.kubernetes.io/revision"]
+		if !ok {
+			continue
+		}
+
+		revision := 0
+		if _, err := fmt.Sscanf(revisionStr, "%d", &revision); err != nil {
+			continue
+		}
+
+		// Extract images from containers
+		images := []string{}
+		if rs.Spec.Template.Spec.Containers != nil {
+			for _, container := range rs.Spec.Template.Spec.Containers {
+				images = append(images, container.Image)
+			}
+		}
+
+		// Extract replicas (use desired replicas from spec)
+		replicas := int32(0)
+		if rs.Spec.Replicas != nil {
+			replicas = *rs.Spec.Replicas
+		}
+
+		// Get reason for change from annotations if available
+		reason := ""
+		if changeReason, ok := rs.Annotations["kubernetes.io/change-cause"]; ok {
+			reason = changeReason
+		}
+
+		revisions = append(revisions, DeploymentRevision{
+			Revision:  revision,
+			CreatedAt: rs.CreationTimestamp.Time.Format("2006-01-02T15:04:05Z"),
+			Images:    images,
+			Replicas:  replicas,
+			Reason:    reason,
+		})
+	}
+
+	// Sort by revision number (descending - newest first)
+	sort.Slice(revisions, func(i, j int) bool {
+		return revisions[i].Revision > revisions[j].Revision
+	})
+
+	// Limit to last 10 revisions
+	if len(revisions) > 10 {
+		revisions = revisions[:10]
+	}
+
+	return revisions, nil
 }
