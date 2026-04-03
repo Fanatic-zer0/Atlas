@@ -9,19 +9,19 @@ import (
 	"atlas/internal/app"
 
 	appsv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	policyv1 "k8s.io/api/policy/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-// resolveNamespace converts the frontend sentinel "_all" to an empty string,
-// which the Kubernetes client interprets as all-namespaces.
+// resolveNamespace returns the namespace as-is.
+// Note: "_all" namespace support has been removed for performance reasons.
 func resolveNamespace(ns string) string {
-	if ns == "_all" {
-		return ""
-	}
 	return ns
 }
 
@@ -468,18 +468,75 @@ func buildPodDetails(pod *corev1.Pod, application *app.App, ctx context.Context)
 }
 
 func buildDeploymentDetails(dep *appsv1.Deployment, application *app.App, ctx context.Context) map[string]interface{} {
+	// Extract container information
+	containers := []map[string]interface{}{}
+	for _, c := range dep.Spec.Template.Spec.Containers {
+		container := map[string]interface{}{
+			"name":  c.Name,
+			"image": c.Image,
+		}
+
+		if len(c.Ports) > 0 {
+			ports := []map[string]interface{}{}
+			for _, p := range c.Ports {
+				ports = append(ports, map[string]interface{}{
+					"name":           p.Name,
+					"container_port": p.ContainerPort,
+					"protocol":       string(p.Protocol),
+				})
+			}
+			container["ports"] = ports
+		}
+
+		// Add resource requirements
+		if c.Resources.Requests != nil || c.Resources.Limits != nil {
+			resources := map[string]interface{}{}
+			if c.Resources.Requests != nil {
+				requests := map[string]string{}
+				if cpu, ok := c.Resources.Requests["cpu"]; ok {
+					requests["cpu"] = cpu.String()
+				}
+				if mem, ok := c.Resources.Requests["memory"]; ok {
+					requests["memory"] = mem.String()
+				}
+				resources["requests"] = requests
+			}
+			if c.Resources.Limits != nil {
+				limits := map[string]string{}
+				if cpu, ok := c.Resources.Limits["cpu"]; ok {
+					limits["cpu"] = cpu.String()
+				}
+				if mem, ok := c.Resources.Limits["memory"]; ok {
+					limits["memory"] = mem.String()
+				}
+				resources["limits"] = limits
+			}
+			container["resources"] = resources
+		}
+
+		containers = append(containers, container)
+	}
+
 	details := map[string]interface{}{
 		"replicas_desired":   *dep.Spec.Replicas,
 		"replicas_ready":     dep.Status.ReadyReplicas,
 		"replicas_available": dep.Status.AvailableReplicas,
 		"replicas_updated":   dep.Status.UpdatedReplicas,
+		"containers":         containers,
 		"labels":             dep.Labels,
+		"annotations":        dep.Annotations,
+		"selector":           dep.Spec.Selector.MatchLabels,
 	}
 
 	if dep.Spec.Strategy.Type != "" {
-		details["strategy"] = map[string]interface{}{
+		strategy := map[string]interface{}{
 			"type": string(dep.Spec.Strategy.Type),
 		}
+		if dep.Spec.Strategy.RollingUpdate != nil {
+			strategy["max_surge"] = dep.Spec.Strategy.RollingUpdate.MaxSurge.String()
+			strategy["max_unavailable"] = dep.Spec.Strategy.RollingUpdate.MaxUnavailable.String()
+		}
+		details["strategy"] = strategy
 	}
 
 	conditions := []map[string]interface{}{}
@@ -492,6 +549,11 @@ func buildDeploymentDetails(dep *appsv1.Deployment, application *app.App, ctx co
 		})
 	}
 	details["conditions"] = conditions
+
+	// Add creation timestamp
+	if !dep.CreationTimestamp.Time.IsZero() {
+		details["created_at"] = dep.CreationTimestamp.Format("2006-01-02 15:04:05")
+	}
 
 	return map[string]interface{}{
 		"name":          dep.Name,
@@ -516,21 +578,32 @@ func buildServiceDetails(svc *corev1.Service, application *app.App, ctx context.
 		})
 	}
 
-	endpoints, _ := application.K8sClient.Clientset.CoreV1().Endpoints(svc.Namespace).Get(ctx, svc.Name, metav1.GetOptions{})
+	// Use EndpointSlices instead of deprecated Endpoints
 	endpointCount := 0
-	if endpoints != nil {
-		for _, subset := range endpoints.Subsets {
-			endpointCount += len(subset.Addresses)
+	labelSelector := fmt.Sprintf("kubernetes.io/service-name=%s", svc.Name)
+	endpointSlices, _ := application.K8sClient.Clientset.DiscoveryV1().EndpointSlices(svc.Namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: labelSelector,
+	})
+	if endpointSlices != nil {
+		for _, slice := range endpointSlices.Items {
+			for _, endpoint := range slice.Endpoints {
+				if endpoint.Conditions.Ready != nil && *endpoint.Conditions.Ready {
+					endpointCount++
+				}
+			}
 		}
 	}
 
 	details := map[string]interface{}{
-		"type":           string(svc.Spec.Type),
-		"cluster_ip":     svc.Spec.ClusterIP,
-		"external_ips":   svc.Spec.ExternalIPs,
-		"ports":          ports,
-		"endpoint_count": endpointCount,
-		"labels":         svc.Labels,
+		"type":             string(svc.Spec.Type),
+		"cluster_ip":       svc.Spec.ClusterIP,
+		"external_ips":     svc.Spec.ExternalIPs,
+		"ports":            ports,
+		"endpoint_count":   endpointCount,
+		"selector":         svc.Spec.Selector,
+		"session_affinity": string(svc.Spec.SessionAffinity),
+		"labels":           svc.Labels,
+		"annotations":      svc.Annotations,
 	}
 
 	return map[string]interface{}{
@@ -547,20 +620,55 @@ func buildServiceDetails(svc *corev1.Service, application *app.App, ctx context.
 func buildIngressDetails(ing *networkingv1.Ingress, application *app.App, ctx context.Context) map[string]interface{} {
 	hosts := []string{}
 	backends := []string{}
+	rules := []map[string]interface{}{}
+
 	for _, rule := range ing.Spec.Rules {
 		hosts = append(hosts, rule.Host)
+		ruleObj := map[string]interface{}{
+			"host": rule.Host,
+		}
+
 		if rule.HTTP != nil {
+			paths := []map[string]interface{}{}
 			for _, path := range rule.HTTP.Paths {
 				backends = append(backends, path.Backend.Service.Name)
+				pathObj := map[string]interface{}{
+					"path":      path.Path,
+					"path_type": string(*path.PathType),
+					"service":   path.Backend.Service.Name,
+					"port":      path.Backend.Service.Port.Number,
+				}
+				paths = append(paths, pathObj)
 			}
+			ruleObj["paths"] = paths
 		}
+		rules = append(rules, ruleObj)
+	}
+
+	// Extract TLS information
+	tlsHosts := []map[string]interface{}{}
+	for _, tls := range ing.Spec.TLS {
+		tlsHosts = append(tlsHosts, map[string]interface{}{
+			"secret_name": tls.SecretName,
+			"hosts":       tls.Hosts,
+		})
+	}
+
+	// Extract ingress class
+	ingressClass := ""
+	if ing.Spec.IngressClassName != nil {
+		ingressClass = *ing.Spec.IngressClassName
 	}
 
 	details := map[string]interface{}{
 		"hosts":            hosts,
+		"rules":            rules,
 		"tls_enabled":      len(ing.Spec.TLS) > 0,
+		"tls_config":       tlsHosts,
 		"backend_services": backends,
+		"ingress_class":    ingressClass,
 		"labels":           ing.Labels,
+		"annotations":      ing.Annotations,
 	}
 
 	return map[string]interface{}{
@@ -1548,4 +1656,263 @@ func getStringPointer(s *string) string {
 		return ""
 	}
 	return *s
+}
+
+// New detail builders for additional resource types
+
+func buildEndpointsDetails(ep *corev1.Endpoints, application *app.App, ctx context.Context) map[string]interface{} {
+	// Count total endpoints
+	totalEndpoints := 0
+	readyEndpoints := 0
+	addressDetails := []map[string]interface{}{}
+
+	for _, subset := range ep.Subsets {
+		// Ready addresses
+		for _, addr := range subset.Addresses {
+			readyEndpoints++
+			totalEndpoints++
+			details := map[string]interface{}{
+				"ip":    addr.IP,
+				"ready": true,
+			}
+			if addr.TargetRef != nil {
+				details["target_kind"] = addr.TargetRef.Kind
+				details["target_name"] = addr.TargetRef.Name
+			}
+			if addr.NodeName != nil {
+				details["node"] = *addr.NodeName
+			}
+			addressDetails = append(addressDetails, details)
+		}
+
+		// Not ready addresses
+		for _, addr := range subset.NotReadyAddresses {
+			totalEndpoints++
+			details := map[string]interface{}{
+				"ip":    addr.IP,
+				"ready": false,
+			}
+			if addr.TargetRef != nil {
+				details["target_kind"] = addr.TargetRef.Kind
+				details["target_name"] = addr.TargetRef.Name
+			}
+			if addr.NodeName != nil {
+				details["node"] = *addr.NodeName
+			}
+			addressDetails = append(addressDetails, details)
+		}
+	}
+
+	// Extract ports
+	ports := []map[string]interface{}{}
+	for _, subset := range ep.Subsets {
+		for _, port := range subset.Ports {
+			ports = append(ports, map[string]interface{}{
+				"name":     port.Name,
+				"port":     port.Port,
+				"protocol": string(port.Protocol),
+			})
+		}
+	}
+
+	healthScore := 100
+	if totalEndpoints == 0 {
+		healthScore = 0
+	} else if readyEndpoints < totalEndpoints {
+		healthScore = int((float64(readyEndpoints) / float64(totalEndpoints)) * 100)
+	}
+
+	return map[string]interface{}{
+		"name":            ep.Name,
+		"namespace":       ep.Namespace,
+		"resource_type":   "Endpoints",
+		"status":          fmt.Sprintf("%d/%d Ready", readyEndpoints, totalEndpoints),
+		"health_score":    healthScore,
+		"total_endpoints": totalEndpoints,
+		"ready_endpoints": readyEndpoints,
+		"addresses":       addressDetails,
+		"ports":           ports,
+		"labels":          ep.Labels,
+		"annotations":     ep.Annotations,
+		"created_at":      ep.CreationTimestamp.Format(time.RFC3339),
+		"age_days":        int(time.Since(ep.CreationTimestamp.Time).Hours() / 24),
+	}
+}
+
+func buildStorageClassDetails(sc *storagev1.StorageClass, application *app.App, ctx context.Context) map[string]interface{} {
+	isDefault := false
+	if sc.Annotations != nil {
+		if val, ok := sc.Annotations["storageclass.kubernetes.io/is-default-class"]; ok && val == "true" {
+			isDefault = true
+		} else if val, ok := sc.Annotations["storageclass.beta.kubernetes.io/is-default-class"]; ok && val == "true" {
+			isDefault = true
+		}
+	}
+
+	volumeBindingMode := ""
+	if sc.VolumeBindingMode != nil {
+		volumeBindingMode = string(*sc.VolumeBindingMode)
+	}
+
+	reclaimPolicy := ""
+	if sc.ReclaimPolicy != nil {
+		reclaimPolicy = string(*sc.ReclaimPolicy)
+	}
+
+	allowVolumeExpansion := false
+	if sc.AllowVolumeExpansion != nil {
+		allowVolumeExpansion = *sc.AllowVolumeExpansion
+	}
+
+	// Find PVCs using this StorageClass
+	allPVCs, _ := application.K8sClient.Clientset.CoreV1().PersistentVolumeClaims("").List(ctx, metav1.ListOptions{})
+	usingPVCs := []map[string]interface{}{}
+	for _, pvc := range allPVCs.Items {
+		if pvc.Spec.StorageClassName != nil && *pvc.Spec.StorageClassName == sc.Name {
+			usingPVCs = append(usingPVCs, map[string]interface{}{
+				"name":      pvc.Name,
+				"namespace": pvc.Namespace,
+				"status":    string(pvc.Status.Phase),
+			})
+		}
+	}
+
+	return map[string]interface{}{
+		"name":                   sc.Name,
+		"resource_type":          "StorageClass",
+		"status":                 "Active",
+		"health_score":           100,
+		"provisioner":            sc.Provisioner,
+		"reclaim_policy":         reclaimPolicy,
+		"volume_binding_mode":    volumeBindingMode,
+		"allow_volume_expansion": allowVolumeExpansion,
+		"is_default":             isDefault,
+		"parameters":             sc.Parameters,
+		"mount_options":          sc.MountOptions,
+		"using_pvcs":             usingPVCs,
+		"pvc_count":              len(usingPVCs),
+		"labels":                 sc.Labels,
+		"annotations":            sc.Annotations,
+		"created_at":             sc.CreationTimestamp.Format(time.RFC3339),
+		"age_days":               int(time.Since(sc.CreationTimestamp.Time).Hours() / 24),
+	}
+}
+
+func buildHPADetails(hpa *autoscalingv2.HorizontalPodAutoscaler, application *app.App, ctx context.Context) map[string]interface{} {
+	// Extract metrics
+	metrics := []map[string]interface{}{}
+	for _, metric := range hpa.Spec.Metrics {
+		metricInfo := map[string]interface{}{
+			"type": string(metric.Type),
+		}
+
+		switch metric.Type {
+		case autoscalingv2.ResourceMetricSourceType:
+			if metric.Resource != nil {
+				metricInfo["resource_name"] = string(metric.Resource.Name)
+				if metric.Resource.Target.AverageUtilization != nil {
+					metricInfo["target"] = fmt.Sprintf("%d%%", *metric.Resource.Target.AverageUtilization)
+				}
+			}
+		case autoscalingv2.PodsMetricSourceType:
+			if metric.Pods != nil {
+				metricInfo["metric_name"] = metric.Pods.Metric.Name
+			}
+		case autoscalingv2.ObjectMetricSourceType:
+			if metric.Object != nil {
+				metricInfo["metric_name"] = metric.Object.Metric.Name
+				metricInfo["target_kind"] = metric.Object.DescribedObject.Kind
+				metricInfo["target_name"] = metric.Object.DescribedObject.Name
+			}
+		}
+
+		metrics = append(metrics, metricInfo)
+	}
+
+	// Extract current metrics
+	currentMetrics := []map[string]interface{}{}
+	for _, metric := range hpa.Status.CurrentMetrics {
+		metricInfo := map[string]interface{}{
+			"type": string(metric.Type),
+		}
+
+		switch metric.Type {
+		case autoscalingv2.ResourceMetricSourceType:
+			if metric.Resource != nil {
+				metricInfo["resource_name"] = string(metric.Resource.Name)
+				if metric.Resource.Current.AverageUtilization != nil {
+					metricInfo["current"] = fmt.Sprintf("%d%%", *metric.Resource.Current.AverageUtilization)
+				}
+			}
+		}
+
+		currentMetrics = append(currentMetrics, metricInfo)
+	}
+
+	healthScore := 100
+	if hpa.Status.CurrentReplicas < *hpa.Spec.MinReplicas || hpa.Status.CurrentReplicas > hpa.Spec.MaxReplicas {
+		healthScore = 50
+	}
+
+	return map[string]interface{}{
+		"name":             hpa.Name,
+		"namespace":        hpa.Namespace,
+		"resource_type":    "HorizontalPodAutoscaler",
+		"status":           fmt.Sprintf("%d replicas", hpa.Status.CurrentReplicas),
+		"health_score":     healthScore,
+		"target_ref_kind":  hpa.Spec.ScaleTargetRef.Kind,
+		"target_ref_name":  hpa.Spec.ScaleTargetRef.Name,
+		"min_replicas":     *hpa.Spec.MinReplicas,
+		"max_replicas":     hpa.Spec.MaxReplicas,
+		"current_replicas": hpa.Status.CurrentReplicas,
+		"desired_replicas": hpa.Status.DesiredReplicas,
+		"metrics":          metrics,
+		"current_metrics":  currentMetrics,
+		"conditions":       hpa.Status.Conditions,
+		"labels":           hpa.Labels,
+		"annotations":      hpa.Annotations,
+		"created_at":       hpa.CreationTimestamp.Format(time.RFC3339),
+		"age_days":         int(time.Since(hpa.CreationTimestamp.Time).Hours() / 24),
+	}
+}
+
+func buildPDBDetails(pdb *policyv1.PodDisruptionBudget, application *app.App, ctx context.Context) map[string]interface{} {
+	minAvailable := ""
+	if pdb.Spec.MinAvailable != nil {
+		minAvailable = pdb.Spec.MinAvailable.String()
+	}
+
+	maxUnavailable := ""
+	if pdb.Spec.MaxUnavailable != nil {
+		maxUnavailable = pdb.Spec.MaxUnavailable.String()
+	}
+
+	healthScore := 100
+	if pdb.Status.CurrentHealthy < pdb.Status.DesiredHealthy {
+		if pdb.Status.DesiredHealthy > 0 {
+			healthScore = int((float64(pdb.Status.CurrentHealthy) / float64(pdb.Status.DesiredHealthy)) * 100)
+		} else {
+			healthScore = 0
+		}
+	}
+
+	return map[string]interface{}{
+		"name":                pdb.Name,
+		"namespace":           pdb.Namespace,
+		"resource_type":       "PodDisruptionBudget",
+		"status":              fmt.Sprintf("%d/%d Healthy", pdb.Status.CurrentHealthy, pdb.Status.DesiredHealthy),
+		"health_score":        healthScore,
+		"min_available":       minAvailable,
+		"max_unavailable":     maxUnavailable,
+		"current_healthy":     pdb.Status.CurrentHealthy,
+		"desired_healthy":     pdb.Status.DesiredHealthy,
+		"expected_pods":       pdb.Status.ExpectedPods,
+		"disruptions_allowed": pdb.Status.DisruptionsAllowed,
+		"selector":            pdb.Spec.Selector,
+		"conditions":          pdb.Status.Conditions,
+		"labels":              pdb.Labels,
+		"annotations":         pdb.Annotations,
+		"created_at":          pdb.CreationTimestamp.Format(time.RFC3339),
+		"age_days":            int(time.Since(pdb.CreationTimestamp.Time).Hours() / 24),
+	}
 }
