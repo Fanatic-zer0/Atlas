@@ -1033,7 +1033,18 @@ func getHealth(application *app.App) http.HandlerFunc {
 			nodeCacheKey := "nodes:cluster"
 			if cachedNodes, ok := application.Cache.Get(nodeCacheKey); ok {
 				mu.Lock()
-				nodeList = cachedNodes.([]map[string]interface{})
+				// Safely convert cached data
+				if nodes, ok := cachedNodes.([]map[string]interface{}); ok {
+					nodeList = nodes
+				} else if nodesSlice, ok := cachedNodes.([]interface{}); ok {
+					// Convert []interface{} to []map[string]interface{}
+					nodeList = make([]map[string]interface{}, len(nodesSlice))
+					for i, node := range nodesSlice {
+						if nodeMap, ok := node.(map[string]interface{}); ok {
+							nodeList[i] = nodeMap
+						}
+					}
+				}
 				mu.Unlock()
 				return
 			}
@@ -2133,7 +2144,15 @@ func getCronJobsAndJobs(application *app.App) http.HandlerFunc {
 					"age":         age,
 				}
 
-				cj["jobs"] = append(cj["jobs"].([]map[string]interface{}), jobData)
+				// Safely append to jobs list
+				if jobsList, ok := cj["jobs"].([]map[string]interface{}); ok {
+					cj["jobs"] = append(jobsList, jobData)
+				} else if jobsInterface, ok := cj["jobs"].([]interface{}); ok {
+					cj["jobs"] = append(jobsInterface, jobData)
+				} else {
+					// Initialize if not set
+					cj["jobs"] = []map[string]interface{}{jobData}
+				}
 			}
 		}
 

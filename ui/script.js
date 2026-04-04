@@ -6772,18 +6772,8 @@ async function clearCache() {
     }
 }
 
-async function updateCacheStats() {
-    try {
-        const response = await fetch('/api/cache/stats');
-        const stats = await response.json();
-        const statsEl = document.getElementById('cacheStats');
-        if (statsEl) {
-            statsEl.textContent = `📦 Cache: ${stats.size} items`;
-        }
-    } catch (error) {
-        console.error('Error fetching cache stats:', error);
-    }
-}
+// Cache stats removed - no longer needed
+// async function updateCacheStats() { ... }
 
 /* ============================================
    PERFORMANCE MONITORING
@@ -6853,15 +6843,9 @@ document.addEventListener('DOMContentLoaded', () => {
         loadClusterInfo();
         console.log('⟳ Loading cluster info...');
         
-        updateCacheStats();
-        console.log('⟳ Updating cache stats...');
-        
         // Load overview dashboard on initial page load
         console.log('⟳ Loading overview dashboard with priority-based batching...');
         loadOverview();
-
-        // Update cache stats every 10 seconds
-        setInterval(updateCacheStats, 10000);
         
         console.log('%c✅ Dashboard initialized successfully', 'font-weight: bold; color: #22c55e;');
     } catch (error) {

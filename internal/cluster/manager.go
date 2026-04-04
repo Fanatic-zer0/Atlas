@@ -72,6 +72,43 @@ func (m *Manager) AddCluster(config ClusterConfig) error {
 	return nil
 }
 
+// AddClusterWithClient registers a new Kubernetes cluster with an existing client.
+// Use this when you already have a k8s client instance.
+func (m *Manager) AddClusterWithClient(id, name, region string, client *k8s.Client) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Get API server URL from client config
+	apiServer := "unknown"
+	if client.Config != nil && client.Config.Host != "" {
+		apiServer = client.Config.Host
+	}
+
+	// Create cluster info
+	info := &ClusterInfo{
+		ID:         id,
+		Name:       name,
+		Kubeconfig: "", // Not from kubeconfig file
+		APIServer:  apiServer,
+		Region:     region,
+		Client:     client,
+		Status:     "unknown",
+		LastCheck:  time.Now(),
+	}
+
+	// Store in clusters map
+	m.clusters[id] = info
+
+	// Cache cluster metadata
+	cacheKey := fmt.Sprintf("cluster:%s:config", id)
+	m.cache.Set(cacheKey, info, 24*time.Hour)
+
+	// Update clusters list in cache
+	m.updateClustersList()
+
+	return nil
+}
+
 // GetCluster retrieves a cluster's k8s client by ID.
 func (m *Manager) GetCluster(clusterID string) (*k8s.Client, error) {
 	m.mu.RLock()

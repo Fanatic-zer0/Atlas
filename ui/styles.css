@@ -657,16 +657,6 @@ body {
     box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.1);
 }
 
-.cache-stats-badge {
-    background: var(--bg-dark);
-    border: 1px solid var(--border-medium);
-    border-radius: var(--radius-sm);
-    padding: 4px 10px;
-    font-size: 11px;
-    color: var(--text-secondary);
-    font-family: 'JetBrains Mono', monospace;
-}
-
 /* Connection Status Indicator */
 .connection-status {
     display: flex;

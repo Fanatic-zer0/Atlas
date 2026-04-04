@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"log/slog"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"atlas/internal/app"
 	"atlas/internal/cache"
 	"atlas/internal/cluster"
+	"atlas/internal/config"
 	"atlas/internal/httpapi"
 	"atlas/internal/k8s"
 )
@@ -26,18 +28,31 @@ func main() {
 
 	logger.Info("Starting Atlas Kubernetes Dashboard")
 
-	// Get configuration from environment
-	cacheType := getEnv("CACHE_TYPE", "memory")
-	clusterID := getEnv("CLUSTER_ID", "default")
-	multiClusterMode := getEnv("MULTI_CLUSTER", "false") == "true"
+	// Load configuration
+	configPath := getEnv("CONFIG_PATH", "config.yaml")
+	cfg, err := config.LoadWithEnvOverrides(configPath)
+	if err != nil {
+		log.Fatalf("Failed to load configuration: %v", err)
+	}
+
+	// Validate configuration
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("Invalid configuration: %v", err)
+	}
+
+	logger.Info("Configuration loaded",
+		"config_file", configPath,
+		"cache_type", cfg.Cache.Type,
+		"multi_cluster", cfg.Features.MultiCluster,
+		"clusters_count", len(cfg.Clusters))
 
 	// Initialize cache
 	cacheConfig := cache.Config{
-		Type:          cacheType,
-		RedisAddr:     getEnv("REDIS_ADDR", "localhost:6379"),
-		RedisPassword: getEnv("REDIS_PASSWORD", ""),
-		RedisDB:       0,
-		ClusterID:     clusterID,
+		Type:          cfg.Cache.Type,
+		RedisAddr:     cfg.Cache.Redis.Addr,
+		RedisPassword: cfg.Cache.Redis.Password,
+		RedisDB:       cfg.Cache.Redis.DB,
+		ClusterID:     getFirstClusterID(cfg),
 		EnableMetrics: true,
 	}
 
@@ -46,40 +61,50 @@ func main() {
 		log.Fatalf("Failed to create cache: %v", err)
 	}
 
-	logger.Info("Cache initialized", "type", cacheType, "cluster_id", clusterID)
+	logger.Info("Cache initialized", "type", cfg.Cache.Type)
 
 	var application *app.App
 
-	if multiClusterMode {
+	if cfg.Features.MultiCluster && len(cfg.Clusters) > 0 {
 		// Multi-cluster mode
 		logger.Info("Starting in multi-cluster mode")
 		clusterManager := cluster.NewManager(cacheImpl)
 
-		// Add clusters from configuration
-		// In production, load from config file or API
-		// For now, just add the default cluster
-		k8sClient, err := k8s.NewClient()
-		if err != nil {
-			log.Fatalf("Failed to create Kubernetes client: %v", err)
-		}
+		// Add each cluster from configuration
+		for _, clusterCfg := range cfg.Clusters {
+			logger.Info("Adding cluster",
+				"id", clusterCfg.ID,
+				"name", clusterCfg.Name,
+				"kubeconfig", clusterCfg.Kubeconfig)
 
-		err = clusterManager.AddCluster(cluster.ClusterConfig{
-			ID:         clusterID,
-			Name:       getEnv("CLUSTER_NAME", "Default Cluster"),
-			Kubeconfig: getEnv("KUBECONFIG", ""),
-			APIServer:  "https://kubernetes.default.svc",
-			Region:     getEnv("CLUSTER_REGION", ""),
-		})
-		if err != nil {
-			log.Fatalf("Failed to add cluster to manager: %v", err)
+			err := clusterManager.AddCluster(cluster.ClusterConfig{
+				ID:         clusterCfg.ID,
+				Name:       clusterCfg.Name,
+				Kubeconfig: clusterCfg.Kubeconfig,
+				APIServer:  clusterCfg.APIServer,
+				Region:     clusterCfg.Region,
+			})
+			if err != nil {
+				logger.Error("Failed to add cluster",
+					"id", clusterCfg.ID,
+					"error", err)
+				log.Fatalf("Failed to add cluster %s: %v", clusterCfg.ID, err)
+			}
+			logger.Info("Cluster added successfully", "id", clusterCfg.ID)
 		}
 
 		application = app.NewWithClusterManager(clusterManager, cacheImpl, logger)
 
-		// Set default K8sClient for backward compatibility with existing handlers
-		application.K8sClient = k8sClient
+		// Set default K8sClient to the first cluster for backward compatibility
+		if len(cfg.Clusters) > 0 {
+			defaultClient, err := clusterManager.GetCluster(cfg.Clusters[0].ID)
+			if err == nil {
+				application.K8sClient = defaultClient
+				logger.Info("Default cluster set", "id", cfg.Clusters[0].ID)
+			}
+		}
 	} else {
-		// Single cluster mode (legacy)
+		// Single cluster mode
 		logger.Info("Starting in single-cluster mode")
 		k8sClient, err := k8s.NewClient()
 		if err != nil {
@@ -98,7 +123,7 @@ func main() {
 	// Setup HTTP routes
 	router := httpapi.SetupRoutes(application)
 
-	port := getEnv("PORT", "8080")
+	port := fmt.Sprintf("%d", cfg.Server.Port)
 	logger.Info("Starting HTTP server", "port", port)
 
 	// Configure HTTP server with timeouts for production use
@@ -123,7 +148,10 @@ func main() {
 		}
 	}()
 
-	logger.Info("Server started successfully", "port", port, "multi_cluster", multiClusterMode)
+	logger.Info("Server started successfully",
+		"port", port,
+		"multi_cluster", cfg.Features.MultiCluster,
+		"clusters", len(cfg.Clusters))
 
 	// Wait for interrupt signal
 	<-sigChan
@@ -148,4 +176,12 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+// getFirstClusterID returns the ID of the first cluster, or "default" if no clusters exist
+func getFirstClusterID(cfg *config.Config) string {
+	if len(cfg.Clusters) > 0 {
+		return cfg.Clusters[0].ID
+	}
+	return "default"
 }

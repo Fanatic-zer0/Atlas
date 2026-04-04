@@ -1,4 +1,4 @@
-# Atlas Configuration Example
+# Atlas Configuration
 # Copy this file to config.yaml and customize for your environment
 
 # Cache configuration
@@ -13,27 +13,34 @@ cache:
     db: 0
 
 # Cluster configuration
-# Leave empty for single-cluster mode (default)
-# Add multiple clusters for multi-cluster support
+# For single-cluster mode: leave empty array []
+# For multi-cluster mode: add cluster definitions below
 clusters: []
-  # Example multi-cluster configuration:
-  # - id: prod-us-east
-  #   name: Production US East
-  #   kubeconfig: /path/to/kubeconfig/prod-us-east
-  #   api_server: https://k8s-api.us-east.example.com
-  #   region: us-east-1
-  #   
-  # - id: prod-eu-west
-  #   name: Production EU West
-  #   kubeconfig: /path/to/kubeconfig/prod-eu-west
-  #   api_server: https://k8s-api.eu-west.example.com
-  #   region: eu-west-1
-  #   
-  # - id: staging
-  #   name: Staging
-  #   kubeconfig: /path/to/kubeconfig/staging
-  #   api_server: https://k8s-api-staging.example.com
-  #   region: us-east-1
+  # Example: Single cluster using default kubeconfig
+  - id: minikube
+    name: Minikube Local
+    kubeconfig: /Users/username/.kube/config
+    api_server: https://192.168.49.2:8443
+    region: local
+
+  # Example: Multiple clusters with separate kubeconfig files
+  - id: prod-us-east
+    name: Production US East
+    kubeconfig: /path/to/kubeconfigs/prod-us-east.yaml
+    api_server: https://k8s-api.us-east.example.com
+    region: us-east-1
+    
+  - id: prod-eu-west
+    name: Production EU West
+    kubeconfig: /path/to/kubeconfigs/prod-eu-west.yaml
+    api_server: https://k8s-api.eu-west.example.com
+    region: eu-west-1
+    
+  - id: staging
+    name: Staging Environment
+    kubeconfig: /path/to/kubeconfigs/staging.yaml
+    api_server: https://k8s-api-staging.example.com
+    region: us-east-1
 
 # Server configuration
 server:
@@ -41,4 +48,5 @@ server:
   
 # Feature flags
 features:
-  multi_cluster: false  # Enable multi-cluster support
+  # Enable multi-cluster support (shows cluster dropdown in UI)
+  multi_cluster: false
