@@ -3,10 +3,12 @@ package httpapi
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
 	"atlas/internal/app"
+	"atlas/internal/k8s"
 
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
@@ -18,6 +20,34 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
+
+// getK8sClient returns the appropriate k8s client for the request.
+// In single-cluster mode, returns the app's single client.
+// In multi-cluster mode, gets the client for the user's selected cluster.
+func getK8sClient(application *app.App, r *http.Request) (*k8s.Client, error) {
+	// Single cluster mode
+	if application.K8sClient != nil {
+		return application.K8sClient, nil
+	}
+
+	// Multi-cluster mode
+	if application.ClusterManager == nil {
+		return nil, fmt.Errorf("no k8s client available")
+	}
+
+	// Get the user's selected cluster
+	userID := getUserID(r)
+	clusterID, ok := application.ClusterManager.GetUserCluster(userID)
+	if !ok {
+		clusterID = application.ClusterManager.GetDefaultCluster()
+	}
+
+	if clusterID == "" {
+		return nil, fmt.Errorf("no cluster selected")
+	}
+
+	return application.ClusterManager.GetCluster(clusterID)
+}
 
 // resolveNamespace returns the namespace as-is.
 // Note: "_all" namespace support has been removed for performance reasons.

@@ -58,20 +58,26 @@ func main() {
 		// Add clusters from configuration
 		// In production, load from config file or API
 		// For now, just add the default cluster
-		_, err := k8s.NewClient()
+		k8sClient, err := k8s.NewClient()
 		if err != nil {
 			log.Fatalf("Failed to create Kubernetes client: %v", err)
 		}
 
-		clusterManager.AddCluster(cluster.ClusterConfig{
+		err = clusterManager.AddCluster(cluster.ClusterConfig{
 			ID:         clusterID,
 			Name:       getEnv("CLUSTER_NAME", "Default Cluster"),
 			Kubeconfig: getEnv("KUBECONFIG", ""),
 			APIServer:  "https://kubernetes.default.svc",
 			Region:     getEnv("CLUSTER_REGION", ""),
 		})
+		if err != nil {
+			log.Fatalf("Failed to add cluster to manager: %v", err)
+		}
 
 		application = app.NewWithClusterManager(clusterManager, cacheImpl, logger)
+
+		// Set default K8sClient for backward compatibility with existing handlers
+		application.K8sClient = k8sClient
 	} else {
 		// Single cluster mode (legacy)
 		logger.Info("Starting in single-cluster mode")
