@@ -619,14 +619,42 @@ body {
     border-color: var(--accent-blue);
 }
 
-.cache-stats-badge {
+/* Cluster Selector (Multi-Cluster Mode) */
+.cluster-selector-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-right: 16px;
+}
+
+.cluster-selector-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.cluster-select {
     background: var(--bg-dark);
     border: 1px solid var(--border-medium);
     border-radius: var(--radius-sm);
-    padding: 4px 10px;
-    font-size: 11px;
-    color: var(--text-secondary);
-    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-primary);
+    padding: 4px 8px;
+    font-size: 12px;
+    cursor: pointer;
+    outline: none;
+    min-width: 180px;
+    font-weight: 500;
+}
+
+.cluster-select:hover {
+    border-color: var(--border-strong);
+    background: var(--bg-medium);
+}
+
+.cluster-select:focus {
+    border-color: var(--accent-purple);
+    box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.1);
 }
 
 /* Connection Status Indicator */

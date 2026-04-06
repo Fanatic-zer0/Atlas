@@ -13,8 +13,8 @@ func healthCheck(application *app.App) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]interface{}{
-			"status":     "ok",
-			"cache_size": application.Cache.Size(),
+			"status":        "ok",
+			"cache_entries": application.Cache.Stats().Entries,
 		})
 	}
 }
@@ -38,8 +38,8 @@ func readinessCheck(application *app.App) http.HandlerFunc {
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]interface{}{
-			"status":     "ready",
-			"cache_size": application.Cache.Size(),
+			"status":        "ready",
+			"cache_entries": application.Cache.Stats().Entries,
 		})
 	}
 }

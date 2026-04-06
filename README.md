@@ -9,10 +9,21 @@
 
 - **Read-Only & Safe** - Zero write operations, perfect for production monitoring
 - **High Performance** - Optimized for 50+ concurrent users with intelligent caching
+- **Multi-Cluster Support** - Manage and switch between multiple Kubernetes clusters (with Redis)
 - **Comprehensive Views** - Pods, Deployments, Services, Ingresses, ConfigMaps, Secrets, PV/PVC, CRDs
 - **Resource Relationships** - Track dependencies and connections between resources
 - **Health Dashboard** - Real-time cluster health with node monitoring and events
 - **Modern UI** - Dark theme with collapsible sections and responsive design
+
+## 🌐 Multi-Cluster Support (New!)
+
+Atlas now supports multi-cluster deployments with Redis-backed caching:
+
+- **Switch between clusters** from the UI dropdown
+- **Shared cache** across multiple Atlas instances
+- **Horizontal scaling** with Redis
+- **Per-cluster namespacing** for cache isolation
+
 
 ## Namespace Specific Dashboard 
 <img width="1725" height="852" alt="image" src="https://github.com/user-attachments/assets/13489745-c10e-48bc-ba65-a6b5e44696aa" />
@@ -25,6 +36,7 @@
 
 ## Easy Navigation between resources.
 <img width="1725" height="852" alt="image" src="https://github.com/user-attachments/assets/d91b4147-502c-4a8a-8de8-d93f425cc38a" />
+
 
 
 ## 🚀 Quick Start
@@ -86,6 +98,19 @@ Access dashboard at `http://localhost:8080`
 
 ## 🐳 Docker Deployment
 
+**Quick setup:**
+
+```bash
+# Start Redis
+docker run -d --name atlas-redis -p 6379:6379 redis:7-alpine
+
+# Run Atlas with multi-cluster mode
+export CACHE_TYPE=redis
+export REDIS_ADDR=localhost:6379
+export MULTI_CLUSTER=true
+./bin/atlas
+```
+
 ### Build
 
 ```bash
@@ -98,6 +123,7 @@ make docker-buildx IMAGE=yourrepo/atlas:latest
 # Multi-arch local test build (current arch only, no registry needed)
 make docker-buildx-load
 ```
+
 
 ### Run with a kubeconfig file
 

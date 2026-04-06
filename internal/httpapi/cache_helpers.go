@@ -64,3 +64,45 @@ func serveFromCacheIfUnchanged(
 
 	return false
 }
+
+// GetSliceFromCache safely retrieves a slice from cache with type conversion.
+// Handles both []map[string]interface{} and []interface{} types from Redis deserialization.
+// This prevents type assertion panics when using Redis cache.
+func GetSliceFromCache(application *app.App, key string) ([]map[string]interface{}, bool) {
+	data, ok := application.Cache.Get(key)
+	if !ok {
+		return nil, false
+	}
+
+	// Try direct type assertion first (memory cache)
+	if slice, ok := data.([]map[string]interface{}); ok {
+		return slice, true
+	}
+
+	// Try interface{} slice and convert (Redis cache)
+	if interfaceSlice, ok := data.([]interface{}); ok {
+		result := make([]map[string]interface{}, 0, len(interfaceSlice))
+		for _, item := range interfaceSlice {
+			if mapItem, ok := item.(map[string]interface{}); ok {
+				result = append(result, mapItem)
+			}
+		}
+		return result, len(result) > 0
+	}
+
+	return nil, false
+}
+
+// GetMapFromCache safely retrieves a map from cache with type conversion.
+func GetMapFromCache(application *app.App, key string) (map[string]interface{}, bool) {
+	data, ok := application.Cache.Get(key)
+	if !ok {
+		return nil, false
+	}
+
+	if mapData, ok := data.(map[string]interface{}); ok {
+		return mapData, true
+	}
+
+	return nil, false
+}

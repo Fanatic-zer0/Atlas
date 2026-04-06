@@ -25,6 +25,13 @@ func getAllResources(application *app.App) http.HandlerFunc {
 		vars := mux.Vars(r)
 		namespace := resolveNamespace(vars["namespace"])
 
+		// Get k8s client (supports both single and multi-cluster modes)
+		k8sClient, err := getK8sClient(application, r)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to get k8s client: %v", err), http.StatusInternalServerError)
+			return
+		}
+
 		resourceType := r.URL.Query().Get("resource_type")
 		lightweight := r.URL.Query().Get("lightweight") == "true"
 
@@ -37,7 +44,7 @@ func getAllResources(application *app.App) http.HandlerFunc {
 		// Quick ResourceVersion check to see if anything changed
 		if hasCachedVersion && cachedVersion != "" {
 			// Do a lightweight List with Limit=1 to just get the ResourceVersion
-			quickCheck, _ := application.K8sClient.Clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{Limit: 1})
+			quickCheck, _ := k8sClient.Clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{Limit: 1})
 			if quickCheck != nil && quickCheck.ResourceVersion == cachedVersion {
 				// Nothing changed, return cached data
 				if cached, ok := application.Cache.Get(cacheKey); ok {
@@ -65,7 +72,7 @@ func getAllResources(application *app.App) http.HandlerFunc {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				pods, err := application.K8sClient.Clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
+				pods, err := k8sClient.Clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
 				if err == nil {
 					mu.Lock()
 					for _, pod := range pods.Items {
@@ -87,7 +94,7 @@ func getAllResources(application *app.App) http.HandlerFunc {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				deployments, err := application.K8sClient.Clientset.AppsV1().Deployments(namespace).List(ctx, metav1.ListOptions{})
+				deployments, err := k8sClient.Clientset.AppsV1().Deployments(namespace).List(ctx, metav1.ListOptions{})
 				if err == nil {
 					mu.Lock()
 					for _, dep := range deployments.Items {
@@ -109,7 +116,7 @@ func getAllResources(application *app.App) http.HandlerFunc {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				services, err := application.K8sClient.Clientset.CoreV1().Services(namespace).List(ctx, metav1.ListOptions{})
+				services, err := k8sClient.Clientset.CoreV1().Services(namespace).List(ctx, metav1.ListOptions{})
 				if err == nil {
 					mu.Lock()
 					for _, svc := range services.Items {
@@ -131,7 +138,7 @@ func getAllResources(application *app.App) http.HandlerFunc {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				ingresses, err := application.K8sClient.Clientset.NetworkingV1().Ingresses(namespace).List(ctx, metav1.ListOptions{})
+				ingresses, err := k8sClient.Clientset.NetworkingV1().Ingresses(namespace).List(ctx, metav1.ListOptions{})
 				if err == nil {
 					mu.Lock()
 					for _, ing := range ingresses.Items {
@@ -153,7 +160,7 @@ func getAllResources(application *app.App) http.HandlerFunc {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				pvs, err := application.K8sClient.Clientset.CoreV1().PersistentVolumes().List(ctx, metav1.ListOptions{})
+				pvs, err := k8sClient.Clientset.CoreV1().PersistentVolumes().List(ctx, metav1.ListOptions{})
 				if err == nil {
 					mu.Lock()
 					for _, pv := range pvs.Items {
@@ -204,7 +211,7 @@ func getAllResources(application *app.App) http.HandlerFunc {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				pvcs, err := application.K8sClient.Clientset.CoreV1().PersistentVolumeClaims(namespace).List(ctx, metav1.ListOptions{})
+				pvcs, err := k8sClient.Clientset.CoreV1().PersistentVolumeClaims(namespace).List(ctx, metav1.ListOptions{})
 				if err == nil {
 					mu.Lock()
 					for _, pvc := range pvcs.Items {
@@ -262,7 +269,7 @@ func getAllResources(application *app.App) http.HandlerFunc {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				statefulSets, err := application.K8sClient.Clientset.AppsV1().StatefulSets(namespace).List(ctx, metav1.ListOptions{})
+				statefulSets, err := k8sClient.Clientset.AppsV1().StatefulSets(namespace).List(ctx, metav1.ListOptions{})
 				if err == nil {
 					mu.Lock()
 					for _, sts := range statefulSets.Items {
@@ -294,7 +301,7 @@ func getAllResources(application *app.App) http.HandlerFunc {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				daemonSets, err := application.K8sClient.Clientset.AppsV1().DaemonSets(namespace).List(ctx, metav1.ListOptions{})
+				daemonSets, err := k8sClient.Clientset.AppsV1().DaemonSets(namespace).List(ctx, metav1.ListOptions{})
 				if err == nil {
 					mu.Lock()
 					for _, ds := range daemonSets.Items {
@@ -324,7 +331,7 @@ func getAllResources(application *app.App) http.HandlerFunc {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				jobs, err := application.K8sClient.Clientset.BatchV1().Jobs(namespace).List(ctx, metav1.ListOptions{})
+				jobs, err := k8sClient.Clientset.BatchV1().Jobs(namespace).List(ctx, metav1.ListOptions{})
 				if err == nil {
 					mu.Lock()
 					for _, job := range jobs.Items {
@@ -355,7 +362,7 @@ func getAllResources(application *app.App) http.HandlerFunc {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				cronJobs, err := application.K8sClient.Clientset.BatchV1().CronJobs(namespace).List(ctx, metav1.ListOptions{})
+				cronJobs, err := k8sClient.Clientset.BatchV1().CronJobs(namespace).List(ctx, metav1.ListOptions{})
 				if err == nil {
 					mu.Lock()
 					for _, cj := range cronJobs.Items {
@@ -767,6 +774,13 @@ func getPods(application *app.App) http.HandlerFunc {
 		vars := mux.Vars(r)
 		namespace := resolveNamespace(vars["namespace"])
 
+		// Get k8s client (supports both single and multi-cluster modes)
+		k8sClient, err := getK8sClient(application, r)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to get k8s client: %v", err), http.StatusInternalServerError)
+			return
+		}
+
 		// Parse pagination parameters
 		limitStr := r.URL.Query().Get("limit")
 		continueToken := r.URL.Query().Get("continue")
@@ -795,7 +809,7 @@ func getPods(application *app.App) http.HandlerFunc {
 			Continue: continueToken,
 		}
 
-		pods, err := application.K8sClient.Clientset.CoreV1().Pods(namespace).List(r.Context(), listOpts)
+		pods, err := k8sClient.Clientset.CoreV1().Pods(namespace).List(r.Context(), listOpts)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -980,6 +994,13 @@ func getHealth(application *app.App) http.HandlerFunc {
 		namespace := resolveNamespace(vars["namespace"])
 		ctx := r.Context()
 
+		// Get k8s client (supports both single and multi-cluster modes)
+		k8sClient, err := getK8sClient(application, r)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to get k8s client: %v", err), http.StatusInternalServerError)
+			return
+		}
+
 		// Check cache first
 		cacheKey := fmt.Sprintf("health:%s", namespace)
 		if cached, ok := application.Cache.Get(cacheKey); ok {
@@ -1010,14 +1031,14 @@ func getHealth(application *app.App) http.HandlerFunc {
 		go func() {
 			defer wg.Done()
 			nodeCacheKey := "nodes:cluster"
-			if cachedNodes, ok := application.Cache.Get(nodeCacheKey); ok {
+			if cachedNodes, ok := GetSliceFromCache(application, nodeCacheKey); ok {
 				mu.Lock()
-				nodeList = cachedNodes.([]map[string]interface{})
+				nodeList = cachedNodes
 				mu.Unlock()
 				return
 			}
 
-			nodes, err := application.K8sClient.Clientset.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+			nodes, err := k8sClient.Clientset.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 			if err == nil {
 				mu.Lock()
 				for _, node := range nodes.Items {
@@ -1060,7 +1081,7 @@ func getHealth(application *app.App) http.HandlerFunc {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			pods, err := application.K8sClient.Clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
+			pods, err := k8sClient.Clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
 			if err == nil {
 				localHealthy := 0
 				localDegraded := 0
@@ -1088,7 +1109,7 @@ func getHealth(application *app.App) http.HandlerFunc {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			deployments, err := application.K8sClient.Clientset.AppsV1().Deployments(namespace).List(ctx, metav1.ListOptions{})
+			deployments, err := k8sClient.Clientset.AppsV1().Deployments(namespace).List(ctx, metav1.ListOptions{})
 			if err == nil {
 				localHealthy := 0
 				localDegraded := 0
@@ -1116,10 +1137,10 @@ func getHealth(application *app.App) http.HandlerFunc {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			services, err := application.K8sClient.Clientset.CoreV1().Services(namespace).List(ctx, metav1.ListOptions{})
+			services, err := k8sClient.Clientset.CoreV1().Services(namespace).List(ctx, metav1.ListOptions{})
 			if err == nil {
 				// Batch fetch all EndpointSlices at once
-				endpointSlicesList, _ := application.K8sClient.Clientset.DiscoveryV1().EndpointSlices(namespace).List(ctx, metav1.ListOptions{})
+				endpointSlicesList, _ := k8sClient.Clientset.DiscoveryV1().EndpointSlices(namespace).List(ctx, metav1.ListOptions{})
 				endpointsMap := make(map[string]bool)
 				for _, slice := range endpointSlicesList.Items {
 					serviceName := slice.Labels["kubernetes.io/service-name"]
@@ -1159,7 +1180,7 @@ func getHealth(application *app.App) http.HandlerFunc {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			ingresses, err := application.K8sClient.Clientset.NetworkingV1().Ingresses(namespace).List(ctx, metav1.ListOptions{})
+			ingresses, err := k8sClient.Clientset.NetworkingV1().Ingresses(namespace).List(ctx, metav1.ListOptions{})
 			if err == nil {
 				mu.Lock()
 				ingressCount = len(ingresses.Items)
@@ -1171,7 +1192,7 @@ func getHealth(application *app.App) http.HandlerFunc {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			ssList, err := application.K8sClient.Clientset.AppsV1().StatefulSets(namespace).List(ctx, metav1.ListOptions{})
+			ssList, err := k8sClient.Clientset.AppsV1().StatefulSets(namespace).List(ctx, metav1.ListOptions{})
 			if err == nil {
 				mu.Lock()
 				statefulSetCount = len(ssList.Items)
@@ -1192,7 +1213,7 @@ func getHealth(application *app.App) http.HandlerFunc {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			dsList, err := application.K8sClient.Clientset.AppsV1().DaemonSets(namespace).List(ctx, metav1.ListOptions{})
+			dsList, err := k8sClient.Clientset.AppsV1().DaemonSets(namespace).List(ctx, metav1.ListOptions{})
 			if err == nil {
 				mu.Lock()
 				daemonSetCount = len(dsList.Items)
@@ -1209,7 +1230,7 @@ func getHealth(application *app.App) http.HandlerFunc {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			jobList, err := application.K8sClient.Clientset.BatchV1().Jobs(namespace).List(ctx, metav1.ListOptions{})
+			jobList, err := k8sClient.Clientset.BatchV1().Jobs(namespace).List(ctx, metav1.ListOptions{})
 			if err == nil {
 				mu.Lock()
 				jobCount = len(jobList.Items)
@@ -1226,7 +1247,7 @@ func getHealth(application *app.App) http.HandlerFunc {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			cjList, err := application.K8sClient.Clientset.BatchV1().CronJobs(namespace).List(ctx, metav1.ListOptions{})
+			cjList, err := k8sClient.Clientset.BatchV1().CronJobs(namespace).List(ctx, metav1.ListOptions{})
 			if err == nil {
 				mu.Lock()
 				cronJobCount = len(cjList.Items)
@@ -1243,7 +1264,7 @@ func getHealth(application *app.App) http.HandlerFunc {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			cmList, err := application.K8sClient.Clientset.CoreV1().ConfigMaps(namespace).List(ctx, metav1.ListOptions{})
+			cmList, err := k8sClient.Clientset.CoreV1().ConfigMaps(namespace).List(ctx, metav1.ListOptions{})
 			if err == nil {
 				mu.Lock()
 				configMapCount = len(cmList.Items)
@@ -1255,7 +1276,7 @@ func getHealth(application *app.App) http.HandlerFunc {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			secList, err := application.K8sClient.Clientset.CoreV1().Secrets(namespace).List(ctx, metav1.ListOptions{})
+			secList, err := k8sClient.Clientset.CoreV1().Secrets(namespace).List(ctx, metav1.ListOptions{})
 			if err == nil {
 				mu.Lock()
 				secretCount = len(secList.Items)
@@ -1267,7 +1288,7 @@ func getHealth(application *app.App) http.HandlerFunc {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			pvcList, err := application.K8sClient.Clientset.CoreV1().PersistentVolumeClaims(namespace).List(ctx, metav1.ListOptions{})
+			pvcList, err := k8sClient.Clientset.CoreV1().PersistentVolumeClaims(namespace).List(ctx, metav1.ListOptions{})
 			if err == nil {
 				mu.Lock()
 				pvcCount = len(pvcList.Items)
@@ -1284,7 +1305,7 @@ func getHealth(application *app.App) http.HandlerFunc {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			events, err := application.K8sClient.Clientset.CoreV1().Events(namespace).List(ctx, metav1.ListOptions{
+			events, err := k8sClient.Clientset.CoreV1().Events(namespace).List(ctx, metav1.ListOptions{
 				Limit: 50,
 			})
 			if err == nil {
@@ -1837,11 +1858,17 @@ func getPVPVC(application *app.App) http.HandlerFunc {
 		for _, pvc := range pvcList.Items {
 			switch pvc.Status.Phase {
 			case "Bound":
-				summary["bound_pvcs"] = summary["bound_pvcs"].(int) + 1
+				if count, ok := summary["bound_pvcs"].(int); ok {
+					summary["bound_pvcs"] = count + 1
+				}
 			case "Pending":
-				summary["pending_pvcs"] = summary["pending_pvcs"].(int) + 1
+				if count, ok := summary["pending_pvcs"].(int); ok {
+					summary["pending_pvcs"] = count + 1
+				}
 			case "Lost":
-				summary["lost_pvcs"] = summary["lost_pvcs"].(int) + 1
+				if count, ok := summary["lost_pvcs"].(int); ok {
+					summary["lost_pvcs"] = count + 1
+				}
 			}
 		}
 
@@ -2112,7 +2139,16 @@ func getCronJobsAndJobs(application *app.App) http.HandlerFunc {
 					"age":         age,
 				}
 
-				cj["jobs"] = append(cj["jobs"].([]map[string]interface{}), jobData)
+				// Safely append to jobs list - handle different types from cache
+				switch jobsData := cj["jobs"].(type) {
+				case []map[string]interface{}:
+					cj["jobs"] = append(jobsData, jobData)
+				case []interface{}:
+					cj["jobs"] = append(jobsData, jobData)
+				default:
+					// Initialize if not set or unexpected type
+					cj["jobs"] = []map[string]interface{}{jobData}
+				}
 			}
 		}
 

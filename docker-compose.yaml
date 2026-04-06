@@ -1,0 +1,84 @@
+# Atlas Multi-Cluster Docker Compose
+# This setup uses config.yaml for cluster definitions
+
+services:
+  # ============================================
+  # Redis Service (Shared Cache)
+  # Required for multi-cluster deployments
+  # ============================================
+  redis:
+    image: redis:7-alpine
+    container_name: atlas-redis
+    # Security: Redis port NOT exposed on host (M-02 fix)
+    # Only accessible via Docker network from Atlas container
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    networks:
+      - atlas-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+  # ============================================
+  # Atlas Dashboard
+  # Configured via config.yaml and .env
+  # ============================================
+  atlas:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: atlas:latest
+    container_name: atlas
+    ports:
+      - "${PORT:-8080}:8080"
+    env_file:
+      - .env
+    environment:
+      - CONFIG_PATH=config.yaml
+      - CACHE_TYPE=${CACHE_TYPE:-redis}
+      - REDIS_ADDR=${REDIS_ADDR:-redis:6379}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      # Mount configuration file
+      - ./config.yaml:/app/config.yaml:ro
+      # Mount container-friendly kubeconfig
+      - ./config-container.kubeconfig:/app/config-container.kubeconfig:ro
+      # Mount kubeconfig directory (contains all cluster kubeconfigs)
+      - ./kubeconfigs:/app/kubeconfigs:ro
+      #local testing - mount .minikube for certificate access
+      - ~/.minikube:/home/appuser/.minikube:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - atlas-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  atlas-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+    driver: local

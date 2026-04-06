@@ -430,7 +430,9 @@ func findOrphanedResources(application *app.App, ctx context.Context, namespace 
 			}
 		}
 		if !used {
-			orphaned["pvcs"] = append(orphaned["pvcs"].([]string), pvc.Name)
+			if pvcList, ok := orphaned["pvcs"].([]string); ok {
+				orphaned["pvcs"] = append(pvcList, pvc.Name)
+			}
 		}
 	}
 
@@ -460,7 +462,9 @@ func findOrphanedResources(application *app.App, ctx context.Context, namespace 
 			}
 		}
 		if !used {
-			orphaned["configmaps"] = append(orphaned["configmaps"].([]string), cm.Name)
+			if cmList, ok := orphaned["configmaps"].([]string); ok {
+				orphaned["configmaps"] = append(cmList, cm.Name)
+			}
 		}
 	}
 
@@ -492,7 +496,9 @@ func findOrphanedResources(application *app.App, ctx context.Context, namespace 
 		}
 
 		if !hasEndpoints {
-			orphaned["services"] = append(orphaned["services"].([]string), svc.Name)
+			if svcList, ok := orphaned["services"].([]string); ok {
+				orphaned["services"] = append(svcList, svc.Name)
+			}
 		}
 	}
 

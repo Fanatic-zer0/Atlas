@@ -112,3 +112,36 @@ func newFromKubeconfig() (*kubernetes.Clientset, KubeMeta, error) {
 		ClusterName: clusterName,
 	}, nil
 }
+
+// NewClientFromConfig creates a new client from a specific kubeconfig path.
+// This is used for multi-cluster support where each cluster has its own kubeconfig.
+func NewClientFromConfig(kubeconfigPath string) (*Client, error) {
+	config, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Tune for higher concurrent load
+	config.QPS = 50.0
+	config.Burst = 100
+
+	// Configure connection pooling
+	if config.WrapTransport != nil {
+		baseTransport := config.WrapTransport(http.DefaultTransport)
+		if httpTransport, ok := baseTransport.(*http.Transport); ok {
+			httpTransport.MaxIdleConns = 200
+			httpTransport.MaxIdleConnsPerHost = 50
+			httpTransport.IdleConnTimeout = 90 * time.Second
+		}
+	}
+
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Client{
+		Clientset: clientset,
+		Config:    config,
+	}, nil
+}

@@ -28,10 +28,8 @@ func getCacheStats(application *app.App) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
-		size := application.Cache.Size()
+		stats := application.Cache.Stats()
 
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"size": size,
-		})
+		json.NewEncoder(w).Encode(stats)
 	}
 }

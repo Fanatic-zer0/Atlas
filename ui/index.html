@@ -129,12 +129,7 @@
       <button class="footer-btn" onclick="toggleTheme()" title="Cycle theme (Light → Dark → One Dark Pro → GitHub Dark → Tokyo Night → GitHub Light → Ayu Light)">
         <span id="themeIcon" style="font-size: 16px;">☀️</span>
       </button>
-      <button class="footer-btn" onclick="clearCache()" title="Clear cache">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="1 4 1 10 7 10"/>
-          <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
-        </svg>
-      </button>
+      <!-- Removed: Clear cache button - disabled for security (H-04 fix) -->
       <button class="footer-btn" onclick="refreshCurrentTab()" title="Refresh">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="23 4 23 10 17 10"/>
@@ -189,6 +184,11 @@
             <div class="clock-time" id="selectedClock">--:--:--</div>
           </div>
         </div>
+        <div class="cluster-selector-wrap" id="clusterSelectorWrap" style="display: none;">
+          <select id="clusterSelect" onchange="switchCluster()" class="cluster-select">
+            <option value="">Loading...</option>
+          </select>
+        </div>
         <div class="ns-selector-wrap">
           <span class="ns-selector-label">Namespace:</span>
           <select id="namespaceSelect" onchange="changeNamespace()" class="ns-select">
@@ -199,7 +199,6 @@
           <svg width="8" height="8" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" fill="currentColor"/></svg>
           <span id="connectionText">Connected</span>
         </div>
-        <span id="cacheStats" class="cache-stats-badge"></span>
       </div>
     </header>
     

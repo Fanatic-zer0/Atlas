@@ -67,7 +67,7 @@ async function loadStatefulSets() {
         container.innerHTML = html;
     } catch (error) {
         console.error('Error loading StatefulSets:', error);
-        container.innerHTML = `<div class="error-message">Failed to load StatefulSets: ${error.message}</div>`;
+        container.innerHTML = `<div class="error-message">Failed to load StatefulSets: ${sanitizeErrorMessage(error)}</div>`;
     }
 }
 
@@ -134,7 +134,7 @@ async function loadDaemonSets() {
         container.innerHTML = html;
     } catch (error) {
         console.error('Error loading DaemonSets:', error);
-        container.innerHTML = `<div class="error-message">Failed to load DaemonSets: ${error.message}</div>`;
+        container.innerHTML = `<div class="error-message">Failed to load DaemonSets: ${sanitizeErrorMessage(error)}</div>`;
     }
 }
 
@@ -203,7 +203,7 @@ async function loadEndpoints() {
         container.innerHTML = html;
     } catch (error) {
         console.error('Error loading Endpoints:', error);
-        container.innerHTML = `<div class="error-message">Failed to load Endpoints: ${error.message}</div>`;
+        container.innerHTML = `<div class="error-message">Failed to load Endpoints: ${sanitizeErrorMessage(error)}</div>`;
     }
 }
 
@@ -270,7 +270,7 @@ async function loadStorageClasses() {
         container.innerHTML = html;
     } catch (error) {
         console.error('Error loading StorageClasses:', error);
-        container.innerHTML = `<div class="error-message">Failed to load StorageClasses: ${error.message}</div>`;
+        container.innerHTML = `<div class="error-message">Failed to load StorageClasses: ${sanitizeErrorMessage(error)}</div>`;
     }
 }
 
@@ -340,7 +340,7 @@ async function loadHPAs() {
         container.innerHTML = html;
     } catch (error) {
         console.error('Error loading HPAs:', error);
-        container.innerHTML = `<div class="error-message">Failed to load HPAs: ${error.message}</div>`;
+        container.innerHTML = `<div class="error-message">Failed to load HPAs: ${sanitizeErrorMessage(error)}</div>`;
     }
 }
 
@@ -407,6 +407,6 @@ async function loadPDBs() {
         container.innerHTML = html;
     } catch (error) {
         console.error('Error loading PDBs:', error);
-        container.innerHTML = `<div class="error-message">Failed to load PDBs: ${error.message}</div>`;
+        container.innerHTML = `<div class="error-message">Failed to load PDBs: ${sanitizeErrorMessage(error)}</div>`;
     }
 }
