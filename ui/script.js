@@ -6753,17 +6753,9 @@ function filterResources() {
    CACHE MANAGEMENT
    ============================================ */
 
-async function clearCache() {
-    try {
-        const response = await fetch('/api/cache/clear', { method: 'POST' });
-        const result = await response.json();
-        alert(result.message);
-        updateCacheStats();
-        refreshCurrentTab();
-    } catch (error) {
-        alert('Error clearing cache: ' + error.message);
-    }
-}
+// Removed: clearCache() function - endpoint disabled for security (H-04 fix)
+// Cache clearing is now only available to admins via container restart:
+// docker-compose restart atlas
 
 // Cache stats removed - no longer needed
 // async function updateCacheStats() { ... }
