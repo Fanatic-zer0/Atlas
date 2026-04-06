@@ -1,4 +1,34 @@
 /* ============================================
+   SECURITY UTILITIES
+   ============================================ */
+
+/**
+ * Escape HTML special characters to prevent XSS attacks
+ * @param {*} str - String to escape
+ * @returns {string} - HTML-safe string
+ */
+function escapeHTML(str) {
+    if (str === null || str === undefined) return '';
+    if (typeof str !== 'string') str = String(str);
+    
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+/**
+ * Sanitize error messages for safe display
+ * @param {Error|string|*} error - Error object or message
+ * @returns {string} - Sanitized error message
+ */
+function sanitizeErrorMessage(error) {
+    if (!error) return 'Unknown error';
+    if (typeof error === 'string') return escapeHTML(error);
+    if (error.message) return escapeHTML(error.message);
+    return escapeHTML(error.toString());
+}
+
+/* ============================================
    GLOBAL STATE & INITIALIZATION
    ============================================ */
 
@@ -75,11 +105,15 @@ function showErrorBanner(type = 'error', title, message, actions = []) {
     const typeClass = type === 'warning' ? 'warning' : type === 'info' ? 'info' : '';
     const icon = type === 'warning' ? '⚠️' : type === 'info' ? 'ℹ️' : '❌';
     
+    // Sanitize title and message to prevent XSS
+    const safeTitle = escapeHTML(title);
+    const safeMessage = message ? escapeHTML(message) : '';
+    
     let actionsHTML = '';
     if (actions.length > 0) {
         actionsHTML = '<div class="error-banner-actions">';
         actions.forEach(action => {
-            actionsHTML += `<button class="error-banner-button" onclick="(${action.action.toString()})()">${action.text}</button>`;
+            actionsHTML += `<button class="error-banner-button" onclick="(${action.action.toString()})()">${escapeHTML(action.text)}</button>`;
         });
         actionsHTML += '</div>';
     }
@@ -89,8 +123,8 @@ function showErrorBanner(type = 'error', title, message, actions = []) {
         <div class="error-banner-content">
             <span class="error-banner-icon">${icon}</span>
             <div class="error-banner-message">
-                <strong>${title}</strong>
-                ${message ? `<div style="margin-top: 4px; font-size: 12px; opacity: 0.9;">${message}</div>` : ''}
+                <strong>${safeTitle}</strong>
+                ${safeMessage ? `<div style="margin-top: 4px; font-size: 12px; opacity: 0.9;">${safeMessage}</div>` : ''}
             </div>
         </div>
         ${actionsHTML}
@@ -1784,7 +1818,7 @@ async function loadIngresses() {
         window.ingressesData = Array.isArray(ingresses) ? ingresses : [ingresses];
         renderIngressesTable(ingresses, container, loadTime);
     } catch (error) {
-        container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error loading ingresses</p><small>${error.message}</small></div>`;
+        container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error loading ingresses</p><small>${sanitizeErrorMessage(error)}</small></div>`;
     }
 }
 
@@ -2030,7 +2064,7 @@ async function testAllIngressChecks(host, tlsEnabled, ingressName, hostIdx) {
             </div>
         `;
     } catch (error) {
-        resultEl.innerHTML = `<span style="color: var(--danger-color);">✗ Test failed: ${error.message}</span>`;
+        resultEl.innerHTML = `<span style="color: var(--danger-color);">✗ Test failed: ${sanitizeErrorMessage(error)}</span>`;
     }
 }
 
@@ -2096,7 +2130,7 @@ async function loadServices() {
         
         renderServicesTable(services, container, loadTime);
     } catch (error) {
-        container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error loading services</p><small>${error.message}</small></div>`;
+        container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error loading services</p><small>${sanitizeErrorMessage(error)}</small></div>`;
     }
 }
 
@@ -2371,7 +2405,7 @@ async function loadConfigMaps() {
         window.configMapsData = configmaps;
         renderConfigMapsTable(configmaps, container);
     } catch (error) {
-        container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error loading configmaps</p><small>${error.message}</small></div>`;
+        container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error loading configmaps</p><small>${sanitizeErrorMessage(error)}</small></div>`;
     }
 }
 
@@ -2502,7 +2536,7 @@ async function loadSecrets() {
         window.secretsData = secrets;
         renderSecretsTable(secrets, container);
     } catch (error) {
-        container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error loading secrets</p><small>${error.message}</small></div>`;
+        container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error loading secrets</p><small>${sanitizeErrorMessage(error)}</small></div>`;
     }
 }
 
@@ -2846,7 +2880,7 @@ async function loadPods(reset = true, silent = false) {
             // Show a filter indicator
             const indicator = document.createElement('div');
             indicator.className = 'dash-filter-indicator';
-            indicator.innerHTML = `Showing pods for <strong>${filterName}</strong> (${visibleCount} pod${visibleCount !== 1 ? 's' : ''}) · <span onclick="clearPodFilter()" style="cursor:pointer;text-decoration:underline">Clear filter</span>`;
+            indicator.innerHTML = `Showing pods for <strong>${escapeHTML(filterName)}</strong> (${visibleCount} pod${visibleCount !== 1 ? 's' : ''}) · <span onclick="clearPodFilter()" style="cursor:pointer;text-decoration:underline">Clear filter</span>`;
             container.insertAdjacentElement('beforebegin', indicator);
             
             // Scroll to first visible row
@@ -2871,7 +2905,7 @@ async function loadPods(reset = true, silent = false) {
     } catch (error) {
         console.error('Error loading pods:', error);
         podsState.loading = false;
-        container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error loading pods</p><small>${error.message}</small></div>`;
+        container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error loading pods</p><small>${sanitizeErrorMessage(error)}</small></div>`;
     }
 }
 
@@ -3022,7 +3056,7 @@ async function loadDeployments(silent = false) {
             });
         }
     } catch (error) {
-        container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error loading deployments</p><small>${error.message}</small></div>`;
+        container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error loading deployments</p><small>${sanitizeErrorMessage(error)}</small></div>`;
     }
 }
 
@@ -3964,7 +3998,7 @@ async function loadHealth() {
 
         container.innerHTML = html;
     } catch (error) {
-        container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error loading health data</p><small>${error.message}</small></div>`;
+        container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error loading health data</p><small>${sanitizeErrorMessage(error)}</small></div>`;
     }
 }
 
@@ -4111,7 +4145,7 @@ async function loadClusterNodes() {
 
         container.innerHTML = html;
     } catch (error) {
-        container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error loading cluster nodes</p><small>${error.message}</small></div>`;
+        container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error loading cluster nodes</p><small>${sanitizeErrorMessage(error)}</small></div>`;
     }
 }
 
@@ -4176,7 +4210,7 @@ async function toggleResourceDetails(resourceId, resourceType, namespace, name) 
                 buildAndRenderFullTree(resourceType, namespace, name, `${resourceId}-content`);
                 
             } catch (error) {
-                contentDiv.innerHTML = `<div class="error-small" style="padding: 12px; color: var(--danger);">Failed to load: ${error.message}</div>`;
+                contentDiv.innerHTML = `<div class="error-small" style="padding: 12px; color: var(--danger);">Failed to load: ${sanitizeErrorMessage(error)}</div>`;
             }
         }
     }
@@ -4433,7 +4467,7 @@ async function buildAndRenderFullTree(resourceType, namespace, name, contentDivI
         if (contentDiv) {
             const xrayContainer = contentDiv.querySelector('#xray-tree-container');
             if (xrayContainer) {
-                xrayContainer.innerHTML = `<div class="tree-empty" style="color: var(--danger);">Error: ${error.message}</div>`;
+                xrayContainer.innerHTML = `<div class="tree-empty" style="color: var(--danger);">Error: ${sanitizeErrorMessage(error)}</div>`;
                 
                 // Update loading badge to show error
                 const loadingBadge = contentDiv.querySelector('.xray-loading-badge');
@@ -4952,7 +4986,7 @@ async function loadCRDs() {
         html += '</tbody></table>';
         container.innerHTML = html;
     } catch (error) {
-        container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error loading CRDs</p><small>${error.message}</small></div>`;
+        container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error loading CRDs</p><small>${sanitizeErrorMessage(error)}</small></div>`;
     }
 }
 
@@ -5168,7 +5202,7 @@ async function loadCronJobsAndJobs() {
         renderCronJobsTable(cronjobs, container);
     } catch (error) {
         console.error('Error loading CronJobs:', error);
-        container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error loading CronJobs</p><small>${error.message}</small></div>`;
+        container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error loading CronJobs</p><small>${sanitizeErrorMessage(error)}</small></div>`;
     }
 }
 
@@ -5280,7 +5314,7 @@ function renderCronJobsTable(cronjobs, container) {
         container.innerHTML = html;
     } catch (renderError) {
         console.error('Error rendering CronJobs table:', renderError);
-        container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error rendering CronJobs</p><small>${renderError.message}</small></div>`;
+        container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error rendering CronJobs</p><small>${sanitizeErrorMessage(renderError)}</small></div>`;
     }
 }
 
@@ -5422,7 +5456,7 @@ async function loadJobs() {
         }
     } catch (error) {
         console.error('Error loading Jobs:', error);
-        container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error loading Jobs</p><small>${error.message}</small></div>`;
+        container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error loading Jobs</p><small>${sanitizeErrorMessage(error)}</small></div>`;
     }
 }
 
@@ -5544,7 +5578,7 @@ function renderJobsTable(jobs, container) {
         container.innerHTML = html;
     } catch (renderError) {
         console.error('Error rendering Jobs table:', renderError);
-        container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error rendering Jobs</p><small>${renderError.message}</small></div>`;
+        container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error rendering Jobs</p><small>${sanitizeErrorMessage(renderError)}</small></div>`;
     }
 }
 
@@ -5763,7 +5797,7 @@ async function loadReleases() {
 
         container.innerHTML = html;
     } catch (error) {
-        container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error loading releases</p><small>${error.message}</small></div>`;
+        container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error loading releases</p><small>${sanitizeErrorMessage(error)}</small></div>`;
     }
 }
 
@@ -5799,7 +5833,7 @@ async function showReleaseDetails(deploymentName, namespace) {
 
         container.innerHTML = html;
     } catch (error) {
-        container.innerHTML = `<p style="color: var(--danger-color);">Error: ${error.message}</p>`;
+        container.innerHTML = `<p style="color: var(--danger-color);">Error: ${sanitizeErrorMessage(error)}</p>`;
     }
 }
 
@@ -5829,7 +5863,7 @@ async function loadPVPVC() {
         window.pvpvcData = data;
         renderPVPVCTable(data, container);
     } catch (error) {
-        container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error loading PV/PVC</p><small>${error.message}</small></div>`;
+        container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error loading PV/PVC</p><small>${sanitizeErrorMessage(error)}</small></div>`;
     }
 }
 
@@ -6400,7 +6434,7 @@ async function loadAllResources() {
 
         container.innerHTML = html;
     } catch (error) {
-        container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error loading resources</p><small>${error.message}</small></div>`;
+        container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p>Error loading resources</p><small>${sanitizeErrorMessage(error)}</small></div>`;
     }
 }
 
@@ -6671,7 +6705,7 @@ document.addEventListener('click', async function(e) {
                 }
             } catch (error) {
                 console.error('Failed to load relationships:', error);
-                children.innerHTML = `<div class="error-small">Failed to load: ${error.message}</div>`;
+                children.innerHTML = `<div class="error-small">Failed to load: ${sanitizeErrorMessage(error)}</div>`;
             } finally {
                 // Remove loading state and show expanded arrow
                 toggle.classList.remove('loading');
