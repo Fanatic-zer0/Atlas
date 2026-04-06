@@ -32,14 +32,13 @@ func loggingMiddleware(logger *slog.Logger) mux.MiddlewareFunc {
 
 func SetupRoutes(application *app.App) *mux.Router {
 	r := mux.NewRouter()
-
 	// Add logging middleware
 	r.Use(loggingMiddleware(application.Logger))
-
+	// Limits: 100 requests/minute per IP, burst of 20
+	r.Use(rateLimitMiddleware())
 	// Serve static files
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./ui"))))
 	r.HandleFunc("/", serveIndex)
-
 	// Health check endpoints
 	r.HandleFunc("/healthz", healthCheck(application)).Methods("GET")
 	r.HandleFunc("/readyz", readinessCheck(application)).Methods("GET")
@@ -68,8 +67,7 @@ func SetupRoutes(application *app.App) *mux.Router {
 	r.HandleFunc("/api/storageclasses", getStorageClasses(application)).Methods("GET")
 	r.HandleFunc("/api/hpas/{namespace}", getHPAs(application)).Methods("GET")
 	r.HandleFunc("/api/pdbs/{namespace}", getPDBs(application)).Methods("GET")
-	r.HandleFunc("/api/network/test", testNetwork(application)).Methods("POST")
-	r.HandleFunc("/api/cache/clear", clearCache(application)).Methods("POST")
+	// Note: Cache stats available at /api/cache/stats for monitoring
 	r.HandleFunc("/api/cache/stats", getCacheStats(application)).Methods("GET")
 
 	// Multi-cluster management endpoints
@@ -78,7 +76,6 @@ func SetupRoutes(application *app.App) *mux.Router {
 	r.HandleFunc("/api/cluster/switch", switchClusterHandler(application)).Methods("POST")
 	r.HandleFunc("/api/cluster/{id}", getClusterInfoHandler(application)).Methods("GET")
 	r.HandleFunc("/api/clusters/health", getClusterHealthHandler(application)).Methods("GET")
-	r.HandleFunc("/api/cache/stats", getCacheStatsHandler(application)).Methods("GET")
 
 	return r
 }
