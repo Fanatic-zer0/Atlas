@@ -1,183 +1,84 @@
-version: '3.8'
-
-# Atlas Production Deployment - AWS EKS Multi-Cluster
-# This setup is designed for production use with multiple EKS clusters
+# Atlas Multi-Cluster Docker Compose
+# This setup uses config.yaml for cluster definitions
 
 services:
   # ============================================
   # Redis Service (Shared Cache)
+  # Required for multi-cluster deployments
   # ============================================
   redis:
     image: redis:7-alpine
-    container_name: atlas-redis-prod
-    restart: always
-    ports:
-      - "6379:6379"
+    container_name: atlas-redis
+    # Security: Redis port NOT exposed on host (M-02 fix)
+    # Only accessible via Docker network from Atlas container
     volumes:
       - redis-data:/data
-    command: >
-      redis-server
-      --appendonly yes
-      --maxmemory 2gb
-      --maxmemory-policy allkeys-lru
-      --requirepass ${REDIS_PASSWORD}
-      --bind 0.0.0.0
-      --protected-mode yes
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     networks:
       - atlas-network
     healthcheck:
-      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD}", "ping"]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 3s
-      retries: 5
-      start_period: 10s
+      retries: 3
+    restart: unless-stopped
     logging:
       driver: "json-file"
       options:
-        max-size: "10m"
-        max-file: "3"
-        labels: "service=redis,env=production"
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 2G
-        reservations:
-          cpus: '0.5'
-          memory: 1G
+        max-size: "5m"
+        max-file: "2"
 
   # ============================================
-  # Atlas Dashboard (Production)
+  # Atlas Dashboard
+  # Configured via config.yaml and .env
   # ============================================
   atlas:
-    image: atlas:${VERSION:-latest}
-    container_name: atlas-prod
-    restart: always
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        VERSION: ${VERSION:-latest}
-        BUILD_DATE: ${BUILD_DATE}
-        VCS_REF: ${VCS_REF}
+    image: atlas:latest
+    container_name: atlas
     ports:
       - "${PORT:-8080}:8080"
     env_file:
       - .env
     environment:
-      # Application
-      - CONFIG_PATH=/app/config.yaml
-      - PORT=8080
-      - LOG_LEVEL=${LOG_LEVEL:-info}
-      
-      # Cache
-      - CACHE_TYPE=redis
-      - REDIS_ADDR=redis:6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
-      
-      # Multi-cluster
-      - MULTI_CLUSTER=true
-      
-      # AWS (if using access keys - not recommended)
-      # Better approach: Use IAM roles when running on EKS
-      - AWS_REGION=${AWS_REGION:-us-east-1}
-      # - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      # - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      
-      # Go runtime
-      - GOMAXPROCS=${GOMAXPROCS:-4}
-      - GOMEMLIMIT=${GOMEMLIMIT:-1GiB}
-    
+      - CONFIG_PATH=config.yaml
+      - CACHE_TYPE=${CACHE_TYPE:-redis}
+      - REDIS_ADDR=${REDIS_ADDR:-redis:6379}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
-      # Configuration
+      # Mount configuration file
       - ./config.yaml:/app/config.yaml:ro
-      
-      # EKS Kubeconfig files (generated with aws eks update-kubeconfig)
+      # Mount container-friendly kubeconfig
+      - ./config-container.kubeconfig:/app/config-container.kubeconfig:ro
+      # Mount kubeconfig directory (contains all cluster kubeconfigs)
       - ./kubeconfigs:/app/kubeconfigs:ro
-      
-      # AWS credentials (if not using IAM roles)
-      # Recommended: Use IAM roles instead of mounting credentials
-      # - ~/.aws:/home/appuser/.aws:ro
-      
-      # Optional: Custom CA certificates
-      # - ./certs/ca-bundle.crt:/etc/ssl/certs/ca-certificates.crt:ro
-    
+      #local testing - mount .minikube for certificate access
+      - ~/.minikube:/home/appuser/.minikube:ro
     depends_on:
       redis:
         condition: service_healthy
-    
     networks:
       - atlas-network
-    
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
-    
+    restart: unless-stopped
     logging:
       driver: "json-file"
       options:
-        max-size: "50m"
-        max-file: "5"
-        labels: "service=atlas,env=production"
-    
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 2G
-        reservations:
-          cpus: '0.5'
-          memory: 512M
-    
-    # Security
-    security_opt:
-      - no-new-privileges:true
-    read_only: false
-    tmpfs:
-      - /tmp
-
-  # ============================================
-  # Nginx Reverse Proxy (Optional)
-  # Uncomment to enable HTTPS and load balancing
-  # ============================================
-  # nginx:
-  #   image: nginx:alpine
-  #   container_name: atlas-nginx-prod
-  #   restart: always
-  #   ports:
-  #     - "80:80"
-  #     - "443:443"
-  #   volumes:
-  #     - ./nginx-production.conf:/etc/nginx/nginx.conf:ro
-  #     - ./certs:/etc/nginx/certs:ro
-  #     - nginx-cache:/var/cache/nginx
-  #   depends_on:
-  #     - atlas
-  #   networks:
-  #     - atlas-network
-  #   healthcheck:
-  #     test: ["CMD", "nginx", "-t"]
-  #     interval: 30s
-  #     timeout: 5s
-  #     retries: 3
-  #   logging:
-  #     driver: "json-file"
-  #     options:
-  #       max-size: "10m"
-  #       max-file: "3"
+        max-size: "10m"
+        max-file: "3"
 
 networks:
   atlas-network:
     driver: bridge
-    ipam:
-      config:
-        - subnet: 172.20.0.0/16
 
 volumes:
   redis-data:
     driver: local
-  # nginx-cache:
-  #   driver: local
