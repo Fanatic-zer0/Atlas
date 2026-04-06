@@ -37,7 +37,7 @@ async function openDetailPanel(panelId, resourceType, namespace, name, data = nu
                 <button class="close-details" onclick="closeDetailPanel('${panelId}')">×</button>
             </div>
             <div class="details-body">
-                <p style="color: var(--danger);">${error.message}</p>
+                <p style="color: var(--danger);">${sanitizeErrorMessage(error)}</p>
             </div>
         `;
     }
